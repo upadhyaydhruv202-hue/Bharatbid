@@ -41,7 +41,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
-          'relative z-10 w-full rounded-t-2xl border border-edge bg-surface-elevated p-5 shadow-panel sm:rounded-2xl',
+          'relative z-10 w-full rounded-t-lg border border-edge bg-surface-elevated p-5 sm:rounded-lg',
           sizeClass[size],
         )}
       >

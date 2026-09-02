@@ -27,12 +27,12 @@ export function PageContainer({
   ...props
 }: PageContainerProps) {
   return (
-    <div className={cn('mx-auto w-full px-4 py-6 sm:px-6', widthClass[width], className)} {...props}>
-      {breadcrumb ? <div className="mb-3">{breadcrumb}</div> : null}
+    <div className={cn('mx-auto w-full px-4 py-5 sm:px-6', widthClass[width], className)} {...props}>
+      {breadcrumb ? <div className="mb-2">{breadcrumb}</div> : null}
       {title || actions ? (
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
-            {title ? <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1> : null}
+            {title ? <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{title}</h1> : null}
             {description ? <p className="max-w-2xl text-sm leading-6 text-foreground-muted">{description}</p> : null}
           </div>
           {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}

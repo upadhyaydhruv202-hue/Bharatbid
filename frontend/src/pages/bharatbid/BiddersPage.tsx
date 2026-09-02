@@ -104,6 +104,22 @@ export function BiddersPage() {
             <option value="true">Udyam provided</option>
             <option value="false">Udyam not provided</option>
           </Select>
+          {search || stateFilter || cityFilter || completeness || hasUdyam ? (
+            <Button
+              variant="ghost"
+              className="lg:col-span-5 justify-self-start"
+              onClick={() => {
+                setSearch('');
+                setStateFilter('');
+                setCityFilter('');
+                setCompleteness('');
+                setHasUdyam('');
+                if (accessToken) void load(accessToken, 1);
+              }}
+            >
+              Clear filters
+            </Button>
+          ) : null}
         </div>
         {error ? (
           <ErrorState message={error} onRetry={() => accessToken && void load(accessToken)} />
@@ -141,7 +157,7 @@ export function BiddersPage() {
                   header: 'Actions',
                   accessor: (row) => (
                     <Link className="text-sm underline" to={`/bharatbid/bidders/${row.id}`}>
-                      Open profile
+                      View →
                     </Link>
                   ),
                 },

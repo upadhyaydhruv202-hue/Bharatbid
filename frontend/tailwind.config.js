@@ -29,8 +29,13 @@ export default {
         info: 'rgb(var(--hsk-info) / <alpha-value>)',
       },
       boxShadow: {
-        panel: '0 18px 40px -18px rgb(15 23 42 / 0.35)',
-        depth: '0 12px 32px -16px rgb(15 23 42 / 0.4), 0 1px 0 rgb(255 255 255 / 0.4) inset',
+        panel: '0 1px 0 rgb(17 28 46 / 0.04)',
+        depth: 'none',
+      },
+      borderRadius: {
+        lg: '0.5rem',
+        xl: '0.625rem',
+        '2xl': '0.75rem',
       },
     },
   },

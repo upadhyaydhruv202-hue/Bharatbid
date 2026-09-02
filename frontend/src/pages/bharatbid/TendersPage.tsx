@@ -110,6 +110,19 @@ export function TendersPage() {
               </option>
             ))}
           </Select>
+          {search || status || category ? (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSearch('');
+                setStatus('');
+                setCategory('');
+                if (accessToken) void load(accessToken, 1);
+              }}
+            >
+              Clear filters
+            </Button>
+          ) : null}
         </div>
         {error ? (
           <ErrorState message={error} onRetry={() => accessToken && void load(accessToken)} />
@@ -135,7 +148,7 @@ export function TendersPage() {
                   header: 'Actions',
                   accessor: (row) => (
                     <Link className="text-sm underline" to={`/bharatbid/tenders/${row.id}`}>
-                      Open
+                      View →
                     </Link>
                   ),
                 },

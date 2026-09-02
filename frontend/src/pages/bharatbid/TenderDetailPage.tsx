@@ -396,7 +396,48 @@ function OverviewTab({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
+    <div className="space-y-4">
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs text-foreground-muted">{tender.referenceNumber}</p>
+            <p className="mt-1 text-lg font-semibold tracking-tight">{tender.title}</p>
+            <p className="mt-1 text-sm text-foreground-muted">
+              {tender.organizationName}
+              {tender.departmentName ? ` · ${tender.departmentName}` : ''}
+            </p>
+          </div>
+          <StatusBadge kind="tender" value={tender.status} />
+        </div>
+        <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="Category" value={tender.category} />
+          <Field label="Issue date" value={formatDate(tender.issueDate)} />
+          <Field label="Submission deadline" value={formatDate(tender.closingDate)} />
+          <Field label="Bidders" value={String(tender.bidSummary.total)} />
+        </dl>
+        <div className="mt-4 grid gap-3 sm:grid-cols-4 text-sm">
+          <div className="rounded-md border border-edge px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">Requirements</p>
+            <p className="mt-1 font-semibold">{tender.requirementCounts.total}</p>
+          </div>
+          <div className="rounded-md border border-edge px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">Active</p>
+            <p className="mt-1 font-semibold">{tender.requirementCounts.active}</p>
+          </div>
+          <div className="rounded-md border border-edge px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">Mandatory</p>
+            <p className="mt-1 font-semibold">{tender.requirementCounts.mandatory}</p>
+          </div>
+          <div className="rounded-md border border-edge px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">Submitted bids</p>
+            <p className="mt-1 font-semibold">{tender.bidSummary.submitted}</p>
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-foreground-muted">
+          Tender configuration completeness is operational only. It is not a compliance or risk score.
+        </p>
+      </Card>
+      <div className="grid gap-4 lg:grid-cols-3">
       <Card className="lg:col-span-2">
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <StatusBadge kind="tender" value={tender.status} />
@@ -496,6 +537,7 @@ function OverviewTab({
           </Alert>
         ) : null}
       </Card>
+    </div>
     </div>
   );
 }

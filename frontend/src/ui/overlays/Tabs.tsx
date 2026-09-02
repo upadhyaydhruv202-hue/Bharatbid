@@ -78,7 +78,7 @@ export function Tabs({ items, value, defaultValue, onChange, className }: TabsPr
               tabIndex={isSelected ? 0 : -1}
               disabled={item.disabled}
               className={cn(
-                '-mb-px shrink-0 whitespace-nowrap rounded-t-lg px-3 py-2 text-sm font-medium',
+                '-mb-px shrink-0 whitespace-nowrap px-3 py-2 text-sm font-medium',
                 focusRing,
                 isSelected
                   ? 'border-b-2 border-accent text-foreground'

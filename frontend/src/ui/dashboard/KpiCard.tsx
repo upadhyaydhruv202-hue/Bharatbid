@@ -16,7 +16,7 @@ export interface KpiCardProps {
 
 export function KpiCard({ label, value, hint, delta, loading, interactive, className }: KpiCardProps) {
   return (
-    <Card className={cn(interactive && 'transition hover:border-info/40 hover:shadow-md', className)}>
+    <Card className={cn(interactive && 'transition-colors hover:border-accent/30', className)}>
       <CardHeader className="mb-2">
         <CardDescription className="uppercase tracking-wide">{label}</CardDescription>
       </CardHeader>

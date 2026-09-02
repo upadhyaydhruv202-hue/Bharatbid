@@ -17,23 +17,20 @@ export function Sidebar({ brand, children, footer, open, onClose }: SidebarProps
     <>
       <button
         type="button"
-        className={cn(
-          'fixed inset-0 z-30 bg-slate-950/40 lg:hidden',
-          open ? 'block' : 'hidden',
-        )}
+        className={cn('fixed inset-0 z-30 bg-slate-950/40 lg:hidden', open ? 'block' : 'hidden')}
         aria-label="Close navigation"
         onClick={onClose}
       />
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-edge bg-surface-elevated/95 shadow-sm backdrop-blur-sm transition-transform lg:static lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-edge bg-surface-elevated transition-transform lg:static lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="border-b border-edge px-4 py-4 text-sm font-semibold tracking-tight text-foreground">
+        <div className="border-b border-edge px-4 py-3.5 text-sm font-semibold tracking-tight text-foreground">
           {brand}
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Primary">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto p-2.5" aria-label="Primary">
           {children}
         </nav>
         {footer ? <div className="border-t border-edge p-3">{footer}</div> : null}
@@ -60,15 +57,24 @@ export function SidebarNavLink({
       onClick={onNavigate}
       className={({ isActive }) =>
         cn(
-          'relative flex items-center rounded-lg px-3 py-2 text-sm transition-transform',
+          'relative flex items-center rounded-md px-3 py-1.5 text-[13px] transition-colors',
           focusRing,
           isActive
-            ? 'bg-surface-muted font-medium text-foreground shadow-sm before:absolute before:left-0 before:top-1.5 before:h-[calc(100%-0.75rem)] before:w-0.5 before:rounded-full before:bg-info'
-            : 'text-foreground-muted hover:translate-x-0.5 hover:bg-surface-muted hover:text-foreground',
+            ? 'bg-surface-muted font-medium text-foreground before:absolute before:left-0 before:top-1.5 before:h-[calc(100%-0.75rem)] before:w-0.5 before:rounded-full before:bg-accent'
+            : 'text-foreground-muted hover:bg-surface-muted hover:text-foreground',
         )
       }
     >
       {children}
     </NavLink>
+  );
+}
+
+export function SidebarGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="pb-2">
+      <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">{label}</p>
+      <div className="space-y-0.5">{children}</div>
+    </div>
   );
 }

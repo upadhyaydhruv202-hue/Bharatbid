@@ -23,6 +23,27 @@ export function BidEvaluationPanel({
   return (
     <div className="space-y-4">
       <Alert title="Decision support">{summary.advisory}</Alert>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">AI Recommendation</p>
+          <CardTitle className="mt-1">Decision support</CardTitle>
+          <p className="mt-2 text-sm text-foreground-muted">{summary.decisionAdvisory}</p>
+          <p className="mt-2 text-xs text-foreground-muted">AI assists. Officers decide.</p>
+        </Card>
+        <Card>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">
+            Procurement Officer Decision
+          </p>
+          <CardTitle className="mt-1">Latest officer decision</CardTitle>
+          <div className="mt-2">
+            {summary.latestDecision ? (
+              <StatusBadge kind="officerDecision" value={summary.latestDecision.decision} />
+            ) : (
+              <p className="text-sm text-foreground-muted">None recorded</p>
+            )}
+          </div>
+        </Card>
+      </div>
       <Card>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <CardTitle>Officer evaluation</CardTitle>

@@ -23,13 +23,13 @@ function getSystemTheme(): ResolvedTheme {
 
 function readStoredTheme(): ThemePreference {
   if (typeof window === 'undefined') {
-    return 'system';
+    return 'light';
   }
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
   if (stored === 'light' || stored === 'dark' || stored === 'system') {
     return stored;
   }
-  return 'system';
+  return 'light';
 }
 
 function resolveTheme(theme: ThemePreference): ResolvedTheme {
@@ -42,7 +42,7 @@ function applyThemeClass(resolved: ResolvedTheme) {
   root.style.colorScheme = resolved;
 }
 
-export function ThemeProvider({ children, defaultTheme = 'system' }: { children: ReactNode; defaultTheme?: ThemePreference }) {
+export function ThemeProvider({ children, defaultTheme = 'light' }: { children: ReactNode; defaultTheme?: ThemePreference }) {
   const [theme, setThemeState] = useState<ThemePreference>(defaultTheme);
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(defaultTheme));
 

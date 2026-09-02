@@ -12,7 +12,7 @@ export interface EmptyStateProps {
 
 export function EmptyState({ title, description, action, className }: EmptyStateProps) {
   return (
-    <div className={cn('rounded-xl border border-dashed border-edge px-6 py-10 text-center', className)}>
+    <div className={cn('rounded-lg border border-dashed border-edge px-6 py-8 text-center', className)}>
       <p className="text-sm font-semibold text-foreground">{title}</p>
       {description ? <p className="mt-1 text-sm text-foreground-muted">{description}</p> : null}
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
@@ -31,7 +31,7 @@ export function ErrorState({ title = 'Something went wrong', message, onRetry, c
   return (
     <div
       role="alert"
-      className={cn('rounded-xl border border-danger/30 bg-danger/10 px-6 py-8 text-center', className)}
+      className={cn('rounded-lg border border-danger/30 bg-danger/10 px-6 py-8 text-center', className)}
     >
       <p className="text-sm font-semibold text-foreground">{title}</p>
       <p className="mt-1 text-sm text-foreground-muted">{message}</p>

@@ -4,38 +4,38 @@
 
 :root {
   color-scheme: light;
-  --hsk-surface: 248 250 252;
+  --hsk-surface: 246 247 250;
   --hsk-surface-elevated: 255 255 255;
-  --hsk-surface-muted: 241 245 249;
-  --hsk-foreground: 15 23 42;
-  --hsk-foreground-muted: 100 116 139;
-  --hsk-foreground-inverted: 248 250 252;
-  --hsk-edge: 226 232 240;
-  --hsk-accent: 15 23 42;
-  --hsk-accent-foreground: 248 250 252;
-  --hsk-danger: 225 29 72;
+  --hsk-surface-muted: 241 243 247;
+  --hsk-foreground: 17 28 46;
+  --hsk-foreground-muted: 90 102 120;
+  --hsk-foreground-inverted: 255 255 255;
+  --hsk-edge: 220 225 233;
+  --hsk-accent: 27 58 107;
+  --hsk-accent-foreground: 255 255 255;
+  --hsk-danger: 180 35 45;
   --hsk-danger-foreground: 255 255 255;
-  --hsk-success: 5 150 105;
-  --hsk-warning: 217 119 6;
-  --hsk-info: 2 132 199;
+  --hsk-success: 15 118 80;
+  --hsk-warning: 180 96 12;
+  --hsk-info: 27 58 107;
 }
 
 .dark {
   color-scheme: dark;
-  --hsk-surface: 15 23 42;
-  --hsk-surface-elevated: 30 41 59;
-  --hsk-surface-muted: 51 65 85;
-  --hsk-foreground: 248 250 252;
+  --hsk-surface: 17 24 39;
+  --hsk-surface-elevated: 24 32 48;
+  --hsk-surface-muted: 36 48 66;
+  --hsk-foreground: 241 245 249;
   --hsk-foreground-muted: 148 163 184;
   --hsk-foreground-inverted: 15 23 42;
   --hsk-edge: 51 65 85;
-  --hsk-accent: 226 232 240;
+  --hsk-accent: 147 180 214;
   --hsk-accent-foreground: 15 23 42;
-  --hsk-danger: 251 113 133;
+  --hsk-danger: 239 154 154;
   --hsk-danger-foreground: 15 23 42;
-  --hsk-success: 52 211 153;
-  --hsk-warning: 251 191 36;
-  --hsk-info: 56 189 248;
+  --hsk-success: 110 186 146;
+  --hsk-warning: 232 185 92;
+  --hsk-info: 147 180 214;
 }
 
 @layer base {
@@ -45,16 +45,17 @@
 
   body {
     @apply min-h-screen bg-surface text-foreground antialiased;
+    font-feature-settings: 'ss01' on, 'cv11' on;
   }
 }
 
 @layer utilities {
   .bb-page-enter {
-    animation: bb-fade-up 220ms ease-out both;
+    animation: bb-fade-up 160ms ease-out both;
   }
 
   .bb-stagger > * {
-    animation: bb-fade-up 320ms ease-out both;
+    animation: bb-fade-up 180ms ease-out both;
   }
 
   .bb-stagger > :nth-child(1) { animation-delay: 0ms; }
@@ -71,9 +72,8 @@
   }
 
   .bb-lift:hover {
-    transform: translateY(-4px) scale(1.01);
-    box-shadow: 0 22px 40px -24px rgb(15 23 42 / 0.45);
-    border-color: rgb(var(--hsk-info) / 0.35);
+    transform: translateY(-1px);
+    border-color: rgb(var(--hsk-accent) / 0.28);
   }
 
   .bb-press:active {
@@ -82,22 +82,6 @@
 
   .bb-intel-bg {
     background-color: rgb(var(--hsk-surface));
-    background-image:
-      radial-gradient(ellipse 80% 50% at 12% 8%, rgb(var(--hsk-info) / 0.08), transparent 55%),
-      radial-gradient(ellipse 60% 40% at 92% 12%, rgb(var(--hsk-info) / 0.06), transparent 50%),
-      radial-gradient(ellipse 50% 40% at 80% 88%, rgb(var(--hsk-info) / 0.05), transparent 55%),
-      linear-gradient(rgb(var(--hsk-edge) / 0.35) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(var(--hsk-edge) / 0.35) 1px, transparent 1px);
-    background-size: auto, auto, auto, 48px 48px, 48px 48px;
-  }
-
-  .dark .bb-intel-bg {
-    background-image:
-      radial-gradient(ellipse 80% 50% at 12% 8%, rgb(var(--hsk-info) / 0.12), transparent 55%),
-      radial-gradient(ellipse 60% 40% at 92% 12%, rgb(var(--hsk-info) / 0.1), transparent 50%),
-      radial-gradient(ellipse 50% 40% at 80% 88%, rgb(56 189 248 / 0.08), transparent 55%),
-      linear-gradient(rgb(var(--hsk-edge) / 0.28) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(var(--hsk-edge) / 0.28) 1px, transparent 1px);
   }
 
   .bb-float {

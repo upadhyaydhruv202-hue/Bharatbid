@@ -119,6 +119,20 @@ export function BidsPage() {
               </option>
             ))}
           </Select>
+          {search || status || tenderId || bidderId ? (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSearch('');
+                setStatus('');
+                setTenderId('');
+                setBidderId('');
+                if (accessToken) void load(accessToken, 1);
+              }}
+            >
+              Clear filters
+            </Button>
+          ) : null}
         </div>
         {error ? (
           <ErrorState message={error} onRetry={() => accessToken && void load(accessToken)} />
@@ -153,7 +167,7 @@ export function BidsPage() {
                   header: 'Actions',
                   accessor: (row) => (
                     <Link className="text-sm underline" to={`/bharatbid/bids/${row.id}`}>
-                      Open
+                      View →
                     </Link>
                   ),
                 },

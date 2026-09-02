@@ -69,9 +69,11 @@ export function AuthStatus() {
           }
         />
       ) : null}
-      <span className="hidden max-w-[12rem] truncate text-xs text-foreground-muted sm:inline">
+      <span className="hidden max-w-[14rem] truncate text-right text-xs text-foreground sm:inline">
         {user?.displayName ?? user?.email}
-        <span className="mt-0.5 block text-[10px] uppercase tracking-wide">{roleLabel(user)}</span>
+        <span className="mt-0.5 block text-[10px] font-medium uppercase tracking-wide text-foreground-muted">
+          {roleLabel(user)}
+        </span>
       </span>
       <Button variant="ghost" size="sm" loading={pending} onClick={() => void logout()}>
         Sign out

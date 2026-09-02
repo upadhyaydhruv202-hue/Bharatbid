@@ -23,7 +23,7 @@ export function Alert({ variant = 'info', title, onDismiss, className, children,
   return (
     <div
       role={variant === 'error' ? 'alert' : 'status'}
-      className={cn('rounded-xl border px-4 py-3 text-sm', variantClass[variant], className)}
+      className={cn('rounded-lg border px-4 py-3 text-sm', variantClass[variant], className)}
       {...props}
     >
       <div className="flex items-start justify-between gap-3">

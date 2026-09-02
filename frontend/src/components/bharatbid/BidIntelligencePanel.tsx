@@ -110,14 +110,17 @@ export function BidIntelligencePanel({
           ) : null}
           {intelligence.officerAdvisory ? (
             <Card className="lg:col-span-2">
-              <CardTitle className="mb-2">Officer advisory</CardTitle>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">AI Recommendation</p>
+              <CardTitle className="mb-2 mt-1">Officer advisory</CardTitle>
               <p className="text-sm">{intelligence.officerAdvisory.text}</p>
               <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-foreground-muted">
                 {intelligence.officerAdvisory.bullets.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
-              <p className="mt-3 text-xs text-foreground-muted">{intelligence.officerAdvisory.disclaimer}</p>
+              <p className="mt-3 text-xs text-foreground-muted">
+                AI assists. Officers decide. {intelligence.officerAdvisory.disclaimer}
+              </p>
             </Card>
           ) : null}
         </div>

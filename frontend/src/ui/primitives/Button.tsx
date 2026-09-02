@@ -48,8 +48,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       type={type}
       className={cn(
-        'bb-press inline-flex items-center justify-center rounded-lg font-medium transition-[opacity,transform,box-shadow] disabled:pointer-events-none disabled:opacity-50',
-        variant === 'primary' && 'shadow-sm hover:shadow-md',
+        'bb-press inline-flex items-center justify-center rounded-md font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
         focusRing,
         variantClass[variant],
         sizeClass[size],

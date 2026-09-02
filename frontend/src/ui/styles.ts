@@ -2,7 +2,7 @@ export const focusRing =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface';
 
 export const controlBase = cnControl(
-  'w-full rounded-lg border border-edge bg-surface-elevated px-3 py-2 text-sm text-foreground shadow-sm',
+  'w-full rounded-md border border-edge bg-surface-elevated px-3 py-2 text-sm text-foreground',
   'placeholder:text-foreground-muted',
   'disabled:cursor-not-allowed disabled:opacity-50',
   focusRing,

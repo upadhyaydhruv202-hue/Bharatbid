@@ -27,7 +27,7 @@ import { ThemeProvider, ToastProvider } from './ui';
 
 export function App() {
   return (
-    <ThemeProvider>
+    <ThemeProvider defaultTheme="light">
       <ToastProvider>
         <AuthProvider>
           <ApiClientProvider>

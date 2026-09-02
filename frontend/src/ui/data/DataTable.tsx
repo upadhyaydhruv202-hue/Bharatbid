@@ -96,10 +96,10 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-edge">
+    <div className="overflow-x-auto rounded-lg border border-edge">
       <table className="min-w-full text-left text-sm">
         {caption ? <caption className="sr-only">{caption}</caption> : null}
-        <thead className="bg-surface-muted text-xs uppercase tracking-wide text-foreground-muted">
+        <thead className="sticky top-0 bg-surface-muted text-[11px] uppercase tracking-wide text-foreground-muted">
           <tr>
             {columns.map((column) => (
               <th key={column.id} scope="col" className={cn('px-4 py-3 font-semibold', column.className)}>
@@ -130,7 +130,10 @@ export function DataTable<T>({
           {sortedRows.map((row) => (
             <tr
               key={rowId(row)}
-              className={cn('border-t border-edge', onRowClick && 'cursor-pointer hover:bg-surface-muted')}
+              className={cn(
+                'border-t border-edge transition-colors',
+                onRowClick && 'cursor-pointer hover:bg-surface-muted',
+              )}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
             >
               {columns.map((column) => (

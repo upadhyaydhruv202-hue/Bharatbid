@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { SessionGate } from '../../auth/SessionGate';
 import { useAuth } from '../../auth/AuthProvider';
 import { hasPermission } from '../../lib/rbac';
-import { formatDateTime } from '../../components/bharatbid/StatusBadge';
+import { formatDateTime, StatusBadge } from '../../components/bharatbid/StatusBadge';
 import { getApiErrorMessage } from '../../services/api';
 import {
   getCommandCenter,
@@ -32,6 +32,21 @@ import {
   Select,
   SimpleBarChart,
 } from '../../ui';
+
+const SOURCE_LABELS: Record<string, string> = {
+  gst: 'GST',
+  mca: 'MCA',
+  udyam: 'Udyam',
+  pan: 'PAN',
+  income_tax: 'Income Tax',
+  epfo: 'EPFO',
+  esic: 'ESIC',
+  gem: 'GeM',
+  dpiit: 'DPIIT',
+  nsic: 'NSIC',
+  debarment: 'Debarment',
+  bis: 'BIS',
+};
 
 const EMPTY: CommandCenterDashboard = {
   generatedAt: new Date().toISOString(),
@@ -141,24 +156,23 @@ export function BharatBidOverviewPage() {
       }
     >
       <SessionGate title="Sign in to open BharatBid" hint="Procurement officer, reviewer, manager, and admin roles can view this workspace.">
-        <section className="mb-8 rounded-2xl border border-edge bg-surface-elevated p-6 shadow-panel">
+        <section className="mb-6 rounded-lg border border-edge bg-surface-elevated p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-warning">{data.demoLabel}</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">BharatBid</h2>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-warning">{data.demoLabel}</p>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground">BharatBid</h2>
               <p className="mt-1 text-sm font-medium text-foreground">Procurement Intelligence Command Center</p>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-foreground-muted">
-                Government procurement officers inspect large volumes of bidder evidence. BharatBid organizes tenders and
-                documents, runs labeled DEMO SOURCE checks, highlights evidence gaps, and supports transparent officer review.
-                It does not award, reject, or rank bidders.
+                Monitor tender evaluations, bidder compliance, verification status and risk across procurement workflows.
+                Government procurement officers inspect large volumes of bidder evidence. BharatBid organizes tenders
+                and documents, runs labeled DEMO SOURCE checks, highlights evidence gaps, and supports transparent officer
+                review. It does not award, reject, or rank bidders.
               </p>
             </div>
             <div className="text-right text-xs text-foreground-muted">
               <p>{formatDateTime(clock.toISOString())}</p>
               <p className="mt-1 uppercase tracking-wide">{data.environment}</p>
-              {(data.demoMode) ? (
-                <p className="mt-1 font-semibold text-warning">{data.demoLabel}</p>
-              ) : null}
+              {data.demoMode ? <p className="mt-1 font-semibold text-warning">{data.demoLabel}</p> : null}
             </div>
           </div>
           <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_16rem]">
@@ -285,6 +299,7 @@ export function BharatBidOverviewPage() {
                   />
                 </Card>
                 <Card>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">AI Recommendation</p>
                   <CardTitle>Officer advisory</CardTitle>
                   <p className="mt-3 text-sm">{data.intelligence.officerAdvisory.text}</p>
                   {data.intelligence.officerAdvisory.bullets.length > 0 ? (
@@ -294,7 +309,9 @@ export function BharatBidOverviewPage() {
                       ))}
                     </ul>
                   ) : null}
-                  <p className="mt-3 text-xs text-foreground-muted">{data.intelligence.officerAdvisory.disclaimer}</p>
+                  <p className="mt-3 text-xs text-foreground-muted">
+                    AI assists. Officers decide. {data.intelligence.officerAdvisory.disclaimer}
+                  </p>
                 </Card>
               </div>
             ) : null}
@@ -319,13 +336,29 @@ export function BharatBidOverviewPage() {
                   empty="No verification runs yet."
                 />
                 {Object.keys(data.verification.bySource).length > 0 ? (
-                  <ul className="mt-3 space-y-1 text-xs text-foreground-muted">
-                    {Object.entries(data.verification.bySource).map(([source, counts]) => (
-                      <li key={source}>
-                        <span className="font-medium uppercase text-foreground">{source}</span> · DEMO SOURCE · matched {counts.matched}, mismatched {counts.mismatched}, not found {counts.notFound}, error {counts.error}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="mt-4">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">
+                      Verification infrastructure
+                    </p>
+                    <ul className="grid gap-2 sm:grid-cols-2">
+                      {Object.entries(data.verification.bySource).map(([source, counts]) => (
+                        <li key={source} className="rounded-md border border-edge px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium uppercase text-foreground">
+                              {SOURCE_LABELS[source] ?? source}
+                            </span>
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-warning">
+                              {counts.sourceMode || 'DEMO SOURCE'}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-foreground-muted">
+                            DEMO SOURCE · matched {counts.matched}, mismatched {counts.mismatched}, not found{' '}
+                            {counts.notFound}, error {counts.error}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : null}
               </Card>
               <Card>
@@ -379,6 +412,54 @@ export function BharatBidOverviewPage() {
                 emptyTitle="No procurement activity yet"
               />
             </div>
+
+            <Card className="mb-6">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <CardTitle>Tenders requiring attention</CardTitle>
+                  <p className="mt-1 text-xs text-foreground-muted">
+                    Open a tender workspace to inspect bidders, requirements, and evaluation.
+                  </p>
+                </div>
+                <Link className="text-sm underline" to="/bharatbid/tenders">
+                  Open tenders
+                </Link>
+              </div>
+              <DataTable
+                caption="Tenders in this workspace"
+                rowId={(row) => row.id}
+                rows={tenders}
+                onRowClick={(row) => navigate(`/bharatbid/tenders/${row.id}`)}
+                emptyTitle="No tenders in this workspace"
+                emptyDescription="Create a tender or wait for procurement records to appear."
+                columns={[
+                  { id: 'referenceNumber', header: 'Tender ID', accessor: 'referenceNumber' },
+                  { id: 'title', header: 'Tender Title', accessor: 'title', className: 'min-w-[14rem]' },
+                  {
+                    id: 'organizationName',
+                    header: 'Organization',
+                    accessor: (row) => `${row.organizationName}${row.departmentName ? ` · ${row.departmentName}` : ''}`,
+                  },
+                  { id: 'bidCount', header: 'Bidders', accessor: 'bidCount' },
+                  { id: 'requirementCount', header: 'Requirements', accessor: (row) => row.requirementCount ?? 0 },
+                  {
+                    id: 'status',
+                    header: 'Status',
+                    accessor: (row) => <StatusBadge kind="tender" value={row.status} />,
+                  },
+                  { id: 'updatedAt', header: 'Last Updated', accessor: (row) => formatDateTime(row.updatedAt) },
+                  {
+                    id: 'action',
+                    header: 'Action',
+                    accessor: (row) => (
+                      <Link className="text-sm underline" to={`/bharatbid/tenders/${row.id}`}>
+                        View evaluation →
+                      </Link>
+                    ),
+                  },
+                ]}
+              />
+            </Card>
 
             <Card className="mb-6">
               <div className="mb-3 flex items-center justify-between gap-3">

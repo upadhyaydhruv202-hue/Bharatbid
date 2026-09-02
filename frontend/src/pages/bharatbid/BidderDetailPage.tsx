@@ -119,6 +119,23 @@ export function BidderDetailPage() {
                 }}
               />
             ) : (
+              <>
+              <Card>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">Bidder profile</p>
+                <p className="mt-1 text-lg font-semibold tracking-tight">{bidder.legalName}</p>
+                {bidder.tradeName ? (
+                  <p className="mt-1 text-sm text-foreground-muted">{bidder.tradeName}</p>
+                ) : null}
+                <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Item label="GSTIN" value={bidder.gstin} />
+                  <Item label="PAN" value={bidder.pan} />
+                  <Item label="Udyam ID" value={bidder.udyamRegistrationNumber} />
+                  <Item label="CIN" value={bidder.cin} />
+                </dl>
+                <p className="mt-3 text-xs text-foreground-muted">
+                  Identifiers are recorded as provided. They are not government-verified on this profile.
+                </p>
+              </Card>
               <div className="grid gap-4 lg:grid-cols-2">
                 <Card>
                   <CardTitle className="mb-4">Identity</CardTitle>
@@ -156,6 +173,7 @@ export function BidderDetailPage() {
                   </dl>
                 </Card>
               </div>
+              </>
             )}
             <Card>
               <CardTitle className="mb-4">Procurement participation</CardTitle>

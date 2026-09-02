@@ -203,6 +203,23 @@ export function BidVerificationPanel({
         {DEMO_SOURCE_ADVISORY} A matched check is an evidence signal only. It is not compliance, eligibility, or a
         government authentication.
       </Alert>
+      <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-foreground-muted" aria-label="Verification pipeline">
+        {[
+          'Bid documents',
+          'Document extraction',
+          'DEMO registration verification',
+          'Cross-portal validation',
+          'Compliance rules',
+          'Officer decision',
+        ].map((step, index, steps) => (
+          <li key={step} className="flex items-center gap-2">
+            <span className="rounded border border-edge bg-surface-elevated px-2 py-1 font-medium text-foreground">
+              {step}
+            </span>
+            {index < steps.length - 1 ? <span aria-hidden>→</span> : null}
+          </li>
+        ))}
+      </ol>
       {loading ? <LoadingState label="Loading verification…" /> : null}
       {error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
       {!loading && !error ? (
@@ -353,6 +370,7 @@ function VerificationDetailModal({
             <StatusBadge kind="verification" value={detail.status} />
             <DemoSourceBadge />
           </div>
+          <h3 className="text-sm font-semibold">Evidence</h3>
           <p className="text-sm text-foreground-muted">{detail.advisory || DEMO_SOURCE_ADVISORY}</p>
           <dl className="grid gap-3 sm:grid-cols-2 text-sm">
             <Meta label="Identifier" value={`${detail.identifierTypeLabel}: ${detail.identifierValue}`} />

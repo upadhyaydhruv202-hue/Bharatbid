@@ -414,12 +414,15 @@ function OverviewTab({
             <Card>
               <CardTitle className="mb-2">Review risk</CardTitle>
               <p className="text-xl font-semibold">{attention.reviewRisk.label}</p>
+              <p className="mt-2 text-xs text-foreground-muted">Procurement officer remains in control of the decision.</p>
             </Card>
           ) : null}
           {attention.officerAdvisory ? (
             <Card>
-              <CardTitle className="mb-2">Officer advisory</CardTitle>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">AI Recommendation</p>
+              <CardTitle className="mb-2 mt-1">Officer advisory</CardTitle>
               <p className="text-sm text-foreground-muted">{attention.officerAdvisory.text}</p>
+              <p className="mt-2 text-xs text-foreground-muted">AI assists. Officers decide.</p>
             </Card>
           ) : null}
         </div>

@@ -16,8 +16,13 @@ export function Topbar({ title, start, end, onMenuClick, className }: TopbarProp
   const { resolvedTheme, toggleTheme } = useTheme();
 
   return (
-    <header className={cn('flex items-center justify-between gap-3 border-b border-edge bg-surface-elevated/90 px-4 py-3 shadow-sm backdrop-blur-sm', className)}>
-      <div className="flex min-w-0 items-center gap-2">
+    <header
+      className={cn(
+        'flex items-center justify-between gap-3 border-b border-edge bg-surface-elevated px-4 py-2.5',
+        className,
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-3">
         {onMenuClick ? (
           <Button variant="ghost" size="sm" className="lg:hidden" aria-label="Open navigation" onClick={onMenuClick}>
             Menu

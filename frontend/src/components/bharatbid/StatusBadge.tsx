@@ -322,7 +322,14 @@ export function StatusBadge({
   kind: keyof typeof KIND_MAP;
 }) {
   const { labels, tones } = KIND_MAP[kind];
-  return <Badge tone={tones[value] ?? 'neutral'}>{labels[value] ?? value.replace(/_/g, ' ')}</Badge>;
+  const tone = (value && tones[value]) || 'neutral';
+  const label = (value && labels[value]) || (value ? value.replace(/_/g, ' ') : '—');
+  return (
+    <Badge tone={tone} title={label}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+      {label}
+    </Badge>
+  );
 }
 
 export function PresenceLabel({ value }: { value: 'provided' | 'not_provided' | boolean | string | null | undefined }) {

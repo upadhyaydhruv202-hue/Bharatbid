@@ -40,7 +40,7 @@ export type { SearchProps } from './data/Search';
 export { EmptyState, ErrorState, LoadingState } from './states/FeedbackStates';
 
 export { AppShell } from './layout/AppShell';
-export { Sidebar, SidebarNavLink } from './layout/Sidebar';
+export { Sidebar, SidebarNavLink, SidebarGroup } from './layout/Sidebar';
 export { Topbar } from './layout/Topbar';
 export { Breadcrumb } from './layout/Breadcrumb';
 export type { BreadcrumbItem } from './layout/Breadcrumb';
