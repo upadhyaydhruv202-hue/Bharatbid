@@ -1,0 +1,95 @@
+# Environment
+.env
+.env.*
+!.env.example
+!.env.test.example
+!.env.demo.example
+
+# TypeScript
+*.tsbuildinfo
+
+# Vite cache (node_modules/.vite is covered by node_modules/)
+.vite/
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+build/
+coverage/
+
+# Logs
+*.log
+logs/
+
+# Runtime
+tmp/
+temp/
+
+# IDE (Cursor rules stay local)
+.vscode/
+.idea/
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Tool caches
+.eslintcache
+.turbo/
+.cache/
+
+# Test
+.nyc_output/
+reports/
+playwright-report/
+test-results/
+
+# Generated files
+uploads/
+generated/
+
+# Runtime object storage and file-backed jobs (not source under src/)
+/backend/storage/
+/storage/
+/backend/job-queue/
+/job-queue/
+
+# Secrets and credentials
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.keystore
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+credentials.json
+**/secrets/
+service-account*.json
+google-services.json
+.env.local
+.env.production
+.env.development
+
+# Local databases
+*.sqlite
+*.sqlite3
+
+# Docker
+docker-data/
+
+# Redis persistence if a local server uses the repository directory
+dump.rdb
+*.aof
+
+# Editor swap / backup
+*.swp
+*.swo
+*~
+

@@ -1,0 +1,944 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  active
+  invited
+  disabled
+}
+
+enum NotificationType {
+  info
+  success
+  warning
+  error
+}
+
+enum NotificationCategory {
+  order_updates
+  security_alerts
+  reports
+  marketing
+  system
+}
+
+enum NotificationPriority {
+  low
+  normal
+  high
+  critical
+}
+
+enum NotificationChannel {
+  email
+  in_app
+  sms
+  push
+  webhook
+}
+
+enum NotificationDeliveryStatus {
+  queued
+  processing
+  sent
+  failed
+  retrying
+}
+
+/// Application user. Password hashes must never be exposed to the frontend or API responses.
+model User {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  displayName  String     @map("display_name")
+  status       UserStatus @default(active)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  userRoles               UserRole[]
+  notifications           Notification[]
+  notificationDeliveries  NotificationDelivery[]
+  notificationPreferences NotificationPreference[]
+  refreshTokens           RefreshToken[]
+  documents               Document[]
+  storedFiles             StoredFile[]
+  auditEvents             AuditEvent[]
+  tendersCreated          Tender[]           @relation("TenderCreatedBy")
+  bidDocumentsUploaded    BidDocument[]      @relation("BidDocumentUploadedBy")
+  verificationsRequested     BidVerification[]       @relation("BidVerificationRequestedBy")
+  crossVerificationsRequested BidCrossVerification[] @relation("BidCrossVerificationRequestedBy")
+  reviewsOpened              BidReviewItem[]         @relation("ReviewOpenedBy")
+  reviewsClosed              BidReviewItem[]         @relation("ReviewClosedBy")
+  reviewAssessments          ReviewAssessment[]
+  clarificationsRequested    ReviewClarification[]   @relation("ClarificationRequestedBy")
+  clarificationsResponded    ReviewClarification[]   @relation("ClarificationRespondedBy")
+  clarificationsCancelled    ReviewClarification[]   @relation("ClarificationCancelledBy")
+  evaluationsStarted         TenderEvaluation[]      @relation("EvaluationStartedBy")
+  evaluationsMarkedReady     TenderEvaluation[]      @relation("EvaluationReadyBy")
+  evaluationsRecorded        TenderEvaluation[]      @relation("EvaluationRecordedBy")
+  evaluationNotes            EvaluationNote[]
+  evaluationDecisions        EvaluationDecision[]
+
+  @@map("users")
+}
+
+/// Hashed refresh tokens. Raw JWTs are never stored. Rotation revokes the previous row.
+model RefreshToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @map("token_hash")
+  familyId   String    @map("family_id") @db.Uuid
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  replacedBy String?   @map("replaced_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tokenHash])
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model Role {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique
+  description String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String   @unique
+  description String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model Notification {
+  id         String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String               @map("user_id") @db.Uuid
+  type       NotificationType
+  title      String
+  body       String
+  category   NotificationCategory @default(system)
+  priority   NotificationPriority @default(normal)
+  metadata   Json?
+  deliveryId String?              @unique @map("delivery_id") @db.Uuid
+  readAt     DateTime?            @map("read_at")
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
+
+  user     User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  delivery NotificationDelivery?  @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+/// Outbound send across any channel. In-app inbox rows stay on `notifications`.
+model NotificationDelivery {
+  id                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channel           NotificationChannel
+  status            NotificationDeliveryStatus
+  priority          NotificationPriority
+  category          NotificationCategory
+  template          String
+  recipient         Json
+  data              Json
+  metadata          Json?
+  userId            String?                    @map("user_id") @db.Uuid
+  idempotencyKey    String?                    @unique @map("idempotency_key")
+  errorMessage      String?                    @map("error_message")
+  attempt           Int                        @default(0)
+  maxAttempts       Int                        @default(3) @map("max_attempts")
+  provider          String?
+  providerMessageId String?                    @map("provider_message_id")
+  sentAt            DateTime?                  @map("sent_at")
+  createdAt         DateTime                   @default(now()) @map("created_at")
+  updatedAt         DateTime                   @updatedAt @map("updated_at")
+
+  user  User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  inApp Notification?
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([channel, status])
+  @@map("notification_deliveries")
+}
+
+model NotificationPreference {
+  id        String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String               @map("user_id") @db.Uuid
+  category  NotificationCategory
+  channel   NotificationChannel
+  enabled   Boolean              @default(true)
+  createdAt DateTime             @default(now()) @map("created_at")
+  updatedAt DateTime             @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category, channel])
+  @@index([userId])
+  @@map("notification_preferences")
+}
+
+enum DocumentStatus {
+  uploaded
+  processing
+  completed
+  failed
+  needs_review
+}
+
+enum DocumentType {
+  invoice
+  receipt
+  certificate
+  application
+  form
+  contract
+  report
+  generic
+}
+
+/// Original uploaded file metadata. Bytes live in object storage, not in this row.
+model Document {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String         @map("user_id") @db.Uuid
+  originalFilename    String         @map("original_filename")
+  storedFilename      String         @map("stored_filename")
+  storageKey          String         @map("storage_key")
+  mimeType            String         @map("mime_type")
+  extension           String
+  sizeBytes           Int            @map("size_bytes")
+  checksumSha256      String         @map("checksum_sha256")
+  documentType        DocumentType   @map("document_type")
+  status              DocumentStatus
+  requestedFields     Json           @map("requested_fields")
+  extractedTextLength Int?           @map("extracted_text_length")
+  errorMessage        String?        @map("error_message")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  extraction  DocumentExtraction?
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("documents")
+}
+
+/// AI-generated extraction. Kept separate from the source document row.
+model DocumentExtraction {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId     String   @unique @map("document_id") @db.Uuid
+  fields         Json
+  missingFields  Json     @map("missing_fields")
+  confidence     Float
+  warnings       Json
+  requiresReview Boolean  @map("requires_review")
+  model          String?
+  provider       String?
+  promptId       String?  @map("prompt_id")
+  promptVersion  String?  @map("prompt_version")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("document_extractions")
+}
+
+/// Generic audit log. Request JSON is redacted metadata. Never store passwords, JWTs, API keys, or OTPs.
+model AuditEvent {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String
+  resource   String?
+  resourceId String?  @map("resource_id")
+  request    Json
+  status     String
+  requestId  String?  @map("request_id")
+  ip         String?
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([resource, createdAt])
+  @@index([createdAt])
+  @@map("audit_events")
+}
+
+/// Uploaded file metadata. Bytes live in object storage (`StoredObject`, local disk, or S3), not in this row.
+model StoredFile {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  originalName String   @map("original_name")
+  storedName   String   @map("stored_name")
+  storageKey   String   @unique @map("storage_key")
+  mimeType     String   @map("mime_type")
+  sizeBytes    Int      @map("size_bytes")
+  provider     String
+  purpose      String
+  uploadedBy   String?  @map("uploaded_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
+
+  @@index([uploadedBy, createdAt])
+  @@index([purpose, createdAt])
+  @@map("stored_files")
+}
+
+/// Shared object bytes. Used when API and workers do not share a local disk (and as a cache source of truth for local+postgres).
+model StoredObject {
+  key         String   @id
+  body        Bytes
+  contentType String   @map("content_type")
+  sizeBytes   Int      @map("size_bytes")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("stored_objects")
+}
+
+enum TenderStatus {
+  draft
+  open
+  under_evaluation
+  closed
+  awarded
+  cancelled
+}
+
+enum TenderRequirementType {
+  statutory
+  eligibility
+  document
+  financial
+  technical
+  organizational
+  declaration
+  tender_specific
+  other
+}
+
+enum BidSubmissionStatus {
+  draft
+  submitted
+  under_review
+  withdrawn
+  finalized
+}
+
+/// GeM / CPSE procurement opportunity. Problem-specific; reusable kit models stay unchanged.
+model Tender {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  referenceNumber  String       @unique @map("reference_number")
+  title            String
+  description      String?
+  organizationName String       @map("organization_name")
+  departmentName   String       @map("department_name")
+  category         String
+  status           TenderStatus @default(draft)
+  issueDate        DateTime     @map("issue_date")
+  closingDate      DateTime     @map("closing_date")
+  createdById      String?      @map("created_by_id") @db.Uuid
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  createdBy    User?                @relation("TenderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  requirements TenderRequirement[]
+  bids         BidSubmission[]
+  reviewItems  BidReviewItem[]
+  evaluation   TenderEvaluation?
+
+  @@index([status, closingDate])
+  @@index([closingDate])
+  @@index([createdAt])
+  @@index([category])
+  @@map("tenders")
+}
+
+model TenderRequirement {
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenderId        String                 @map("tender_id") @db.Uuid
+  name            String
+  description     String?
+  requirementType TenderRequirementType  @map("requirement_type")
+  mandatory       Boolean                @default(true)
+  active          Boolean                @default(true)
+  sortOrder       Int                    @default(0) @map("sort_order")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  tender    Tender        @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  documents BidDocument[]
+  reviewItems BidReviewItem[]
+
+  @@index([tenderId, sortOrder])
+  @@index([tenderId, active])
+  @@index([tenderId, mandatory])
+  @@map("tender_requirements")
+}
+
+/// Legal entity bidding on tenders. Identifiers are unique when present; empty values are stored as null.
+model Bidder {
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legalName               String   @map("legal_name")
+  tradeName               String?  @map("trade_name")
+  pan                     String?  @unique
+  gstin                   String?  @unique
+  cin                     String?  @unique
+  udyamRegistrationNumber String?  @unique @map("udyam_registration_number")
+  registeredAddress       String?  @map("registered_address")
+  city                    String?
+  state                   String?
+  pincode                 String?
+  contactName             String?  @map("contact_name")
+  contactEmail            String?  @map("contact_email")
+  contactPhone            String?  @map("contact_phone")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  bids BidSubmission[]
+  verifications BidVerification[]
+  crossVerifications BidCrossVerification[]
+  reviewItems BidReviewItem[]
+
+  @@index([legalName])
+  @@index([city, state])
+  @@map("bidders")
+}
+
+/// One submission per bidder per tender. Future document/verification/compliance rows should hang off this model.
+model BidSubmission {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenderId             String               @map("tender_id") @db.Uuid
+  bidderId             String               @map("bidder_id") @db.Uuid
+  submissionReference  String               @unique @map("submission_reference")
+  submittedAt          DateTime?            @map("submitted_at")
+  status               BidSubmissionStatus  @default(draft)
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @updatedAt @map("updated_at")
+
+  tender    Tender        @relation(fields: [tenderId], references: [id], onDelete: Restrict)
+  bidder    Bidder        @relation(fields: [bidderId], references: [id], onDelete: Restrict)
+  documents BidDocument[]
+  verifications BidVerification[]
+  crossVerifications BidCrossVerification[]
+  reviewItems BidReviewItem[]
+  evaluationNotes     EvaluationNote[]
+  evaluationDecisions EvaluationDecision[]
+
+  @@unique([tenderId, bidderId])
+  @@index([tenderId, status])
+  @@index([bidderId, createdAt])
+  @@index([status, submittedAt])
+  @@map("bid_submissions")
+}
+
+enum BidDocumentType {
+  pan
+  gst_certificate
+  cin
+  udyam_certificate
+  financial_statement
+  turnover_certificate
+  bank_certificate
+  technical_qualification
+  experience_certificate
+  oem_authorization
+  product_datasheet
+  incorporation_certificate
+  authorization_letter
+  affidavit
+  declaration
+  bid_form
+  tender_response
+  price_schedule
+  epfo_certificate
+  esic_certificate
+  nsic_certificate
+  dpiit_certificate
+  bis_licence
+  other
+}
+
+enum BidDocumentStatus {
+  uploaded
+  processing
+  ready
+  failed
+  archived
+}
+
+enum BidDocumentExtractionStatus {
+  not_started
+  queued
+  processing
+  completed
+  failed
+}
+
+/// Procurement evidence file for a bid. Bytes live in StorageService; this row is metadata only.
+model BidDocument {
+  id                   String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bidSubmissionId      String                        @map("bid_submission_id") @db.Uuid
+  tenderRequirementId  String?                       @map("tender_requirement_id") @db.Uuid
+  groupId              String                        @map("group_id") @db.Uuid
+  versionNumber        Int                           @default(1) @map("version_number")
+  isCurrent            Boolean                       @default(true) @map("is_current")
+  documentType         BidDocumentType               @map("document_type")
+  originalFilename     String                        @map("original_filename")
+  storedFilename       String                        @map("stored_filename")
+  mimeType             String                        @map("mime_type")
+  extension            String
+  sizeBytes            Int                           @map("size_bytes")
+  storageKey           String                        @unique @map("storage_key")
+  checksumSha256       String                        @map("checksum_sha256")
+  status               BidDocumentStatus             @default(uploaded)
+  extractionStatus     BidDocumentExtractionStatus   @default(not_started) @map("extraction_status")
+  extractedText        String?                       @map("extracted_text")
+  extractedAt          DateTime?                     @map("extracted_at")
+  extractionEngine     String?                       @map("extraction_engine")
+  extractionError      String?                       @map("extraction_error")
+  uploadedById         String?                       @map("uploaded_by_id") @db.Uuid
+  archivedAt           DateTime?                     @map("archived_at")
+  createdAt            DateTime                      @default(now()) @map("created_at")
+  updatedAt            DateTime                      @updatedAt @map("updated_at")
+
+  bid         BidSubmission       @relation(fields: [bidSubmissionId], references: [id], onDelete: Cascade)
+  requirement TenderRequirement?  @relation(fields: [tenderRequirementId], references: [id], onDelete: SetNull)
+  uploadedBy  User?               @relation("BidDocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  verifications BidVerification[]
+  reviewItems BidReviewItem[]
+
+  @@index([bidSubmissionId, createdAt])
+  @@index([bidSubmissionId, isCurrent])
+  @@index([bidSubmissionId, checksumSha256])
+  @@index([tenderRequirementId])
+  @@index([documentType])
+  @@index([status])
+  @@index([groupId, versionNumber])
+  @@map("bid_documents")
+}
+
+enum VerificationSource {
+  gst
+  mca
+  udyam
+  gem
+  pan
+  income_tax
+  epfo
+  esic
+  dpiit
+  nsic
+  debarment
+  bis
+}
+
+enum VerificationIdentifierType {
+  gstin
+  cin
+  udyam
+  pan
+  epfo
+  esic
+  nsic
+  dpiit
+  gem_seller
+  bis
+}
+
+enum VerificationSourceMode {
+  demo
+  external
+}
+
+enum VerificationStatus {
+  not_started
+  queued
+  processing
+  matched
+  mismatched
+  not_found
+  error
+}
+
+enum VerificationIdentifierOrigin {
+  extracted
+  manual
+  bidder_profile
+}
+
+/// Source comparison for a bid identifier. Results are immutable; retries create a new row.
+model BidVerification {
+  id                   String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bidSubmissionId      String                       @map("bid_submission_id") @db.Uuid
+  bidderId             String                       @map("bidder_id") @db.Uuid
+  documentId           String?                      @map("document_id") @db.Uuid
+  groupId              String                       @map("group_id") @db.Uuid
+  attemptNumber        Int                          @default(1) @map("attempt_number")
+  isLatest             Boolean                      @default(true) @map("is_latest")
+  identifierType       VerificationIdentifierType   @map("identifier_type")
+  identifierValue      String                       @map("identifier_value")
+  identifierOrigin     VerificationIdentifierOrigin @map("identifier_origin")
+  source               VerificationSource
+  sourceMode           VerificationSourceMode       @map("source_mode")
+  sourceDisplayName    String                       @map("source_display_name")
+  status               VerificationStatus
+  explanation          String
+  fieldComparisons     Json                         @map("field_comparisons")
+  sourceSnapshot       Json?                        @map("source_snapshot")
+  errorCode            String?                      @map("error_code")
+  errorMessage         String?                      @map("error_message")
+  requestedAt          DateTime                     @default(now()) @map("requested_at")
+  completedAt          DateTime?                    @map("completed_at")
+  requestedById        String?                      @map("requested_by_id") @db.Uuid
+  createdAt            DateTime                     @default(now()) @map("created_at")
+  updatedAt            DateTime                     @updatedAt @map("updated_at")
+
+  bid         BidSubmission @relation(fields: [bidSubmissionId], references: [id], onDelete: Cascade)
+  bidder      Bidder        @relation(fields: [bidderId], references: [id], onDelete: Restrict)
+  document    BidDocument?  @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  requestedBy User?         @relation("BidVerificationRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  crossChecksLeft  BidCrossVerification[] @relation("CrossVerificationLeft")
+  crossChecksRight BidCrossVerification[] @relation("CrossVerificationRight")
+  reviewItems BidReviewItem[]
+
+  @@index([bidSubmissionId, createdAt])
+  @@index([bidSubmissionId, isLatest])
+  @@index([bidderId])
+  @@index([documentId])
+  @@index([identifierType])
+  @@index([source])
+  @@index([status])
+  @@index([groupId, attemptNumber])
+  @@map("bid_verifications")
+}
+
+enum CrossVerificationComparisonType {
+  gst_mca
+  gst_udyam
+  mca_udyam
+}
+
+enum CrossVerificationStatus {
+  consistent
+  inconsistent
+  insufficient_evidence
+  not_comparable
+  error
+}
+
+enum CrossVerificationSourceBasis {
+  demo
+  external
+  mixed
+}
+
+/// Comparison of two completed source verifications for the same bid. Immutable; new attempts create a new row.
+model BidCrossVerification {
+  id                    String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bidSubmissionId       String                           @map("bid_submission_id") @db.Uuid
+  bidderId              String                           @map("bidder_id") @db.Uuid
+  leftVerificationId    String                           @map("left_verification_id") @db.Uuid
+  rightVerificationId   String                           @map("right_verification_id") @db.Uuid
+  comparisonType        CrossVerificationComparisonType  @map("comparison_type")
+  status                CrossVerificationStatus
+  sourceBasis           CrossVerificationSourceBasis     @map("source_basis")
+  leftSource            VerificationSource               @map("left_source")
+  rightSource           VerificationSource               @map("right_source")
+  leftSourceMode        VerificationSourceMode           @map("left_source_mode")
+  rightSourceMode       VerificationSourceMode           @map("right_source_mode")
+  leftSourceDisplayName String                           @map("left_source_display_name")
+  rightSourceDisplayName String                          @map("right_source_display_name")
+  fieldComparisons      Json                             @map("field_comparisons")
+  explanation           String
+  groupId               String                           @map("group_id") @db.Uuid
+  attemptNumber         Int                              @default(1) @map("attempt_number")
+  isLatest              Boolean                          @default(true) @map("is_latest")
+  requestedAt           DateTime                         @default(now()) @map("requested_at")
+  completedAt           DateTime?                        @map("completed_at")
+  requestedById         String?                          @map("requested_by_id") @db.Uuid
+  createdAt             DateTime                         @default(now()) @map("created_at")
+  updatedAt             DateTime                         @updatedAt @map("updated_at")
+
+  bid               BidSubmission   @relation(fields: [bidSubmissionId], references: [id], onDelete: Cascade)
+  bidder            Bidder          @relation(fields: [bidderId], references: [id], onDelete: Restrict)
+  leftVerification  BidVerification @relation("CrossVerificationLeft", fields: [leftVerificationId], references: [id], onDelete: Restrict)
+  rightVerification BidVerification @relation("CrossVerificationRight", fields: [rightVerificationId], references: [id], onDelete: Restrict)
+  requestedBy       User?           @relation("BidCrossVerificationRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  reviewItems       BidReviewItem[]
+
+  @@index([bidSubmissionId, createdAt])
+  @@index([bidSubmissionId, isLatest])
+  @@index([comparisonType])
+  @@index([status])
+  @@index([groupId, attemptNumber])
+  @@map("bid_cross_verifications")
+}
+
+enum ReviewIssueType {
+  evidence_missing
+  verification_mismatch
+  cross_source_inconsistency
+  evidence_conflict
+  review_required
+  source_unavailable
+  requirement_unevaluated
+}
+
+enum ReviewItemStatus {
+  open
+  in_review
+  clarification_requested
+  assessed
+  closed
+}
+
+enum ReviewAssessmentType {
+  confirmed
+  explanation_accepted
+  evidence_sufficient
+  evidence_insufficient
+  requires_clarification
+  not_applicable
+}
+
+enum ReviewClarificationStatus {
+  requested
+  responded
+  cancelled
+}
+
+/// Officer review item derived from machine intelligence. Machine finding is immutable.
+model BidReviewItem {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fingerprint          String
+  bidSubmissionId      String            @map("bid_submission_id") @db.Uuid
+  tenderId             String            @map("tender_id") @db.Uuid
+  bidderId             String            @map("bidder_id") @db.Uuid
+  issueType            ReviewIssueType   @map("issue_type")
+  status               ReviewItemStatus  @default(open)
+  title                String
+  whyCreated           String            @map("why_created")
+  whyItMatters         String            @map("why_it_matters")
+  inspectHint          String            @map("inspect_hint")
+  actionHint           String            @map("action_hint")
+  machineFinding       String            @map("machine_finding")
+  machineExplanation   String            @map("machine_explanation")
+  mandatory            Boolean           @default(true)
+  requirementId        String?           @map("requirement_id") @db.Uuid
+  documentId           String?           @map("document_id") @db.Uuid
+  verificationId       String?           @map("verification_id") @db.Uuid
+  crossVerificationId  String?           @map("cross_verification_id") @db.Uuid
+  openedAt             DateTime?         @map("opened_at")
+  openedById           String?           @map("opened_by_id") @db.Uuid
+  closedAt             DateTime?         @map("closed_at")
+  closedById           String?           @map("closed_by_id") @db.Uuid
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+
+  bid               BidSubmission         @relation(fields: [bidSubmissionId], references: [id], onDelete: Cascade)
+  tender            Tender                @relation(fields: [tenderId], references: [id], onDelete: Restrict)
+  bidder            Bidder                @relation(fields: [bidderId], references: [id], onDelete: Restrict)
+  requirement       TenderRequirement?    @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  document          BidDocument?          @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  verification      BidVerification?      @relation(fields: [verificationId], references: [id], onDelete: SetNull)
+  crossVerification BidCrossVerification? @relation(fields: [crossVerificationId], references: [id], onDelete: SetNull)
+  openedBy          User?                 @relation("ReviewOpenedBy", fields: [openedById], references: [id], onDelete: SetNull)
+  closedBy          User?                 @relation("ReviewClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  assessments       ReviewAssessment[]
+  clarifications    ReviewClarification[]
+
+  @@unique([bidSubmissionId, fingerprint])
+  @@index([bidSubmissionId, status])
+  @@index([tenderId, status])
+  @@index([bidderId])
+  @@index([issueType, status])
+  @@index([status, createdAt])
+  @@index([mandatory])
+  @@map("bid_review_items")
+}
+
+/// Immutable officer assessment. Amendments create a new row.
+model ReviewAssessment {
+  id             String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reviewItemId   String                 @map("review_item_id") @db.Uuid
+  assessment     ReviewAssessmentType
+  note           String
+  attemptNumber  Int                    @default(1) @map("attempt_number")
+  isLatest       Boolean                @default(true) @map("is_latest")
+  assessedById   String                 @map("assessed_by_id") @db.Uuid
+  assessedAt     DateTime               @default(now()) @map("assessed_at")
+  createdAt      DateTime               @default(now()) @map("created_at")
+
+  reviewItem BidReviewItem @relation(fields: [reviewItemId], references: [id], onDelete: Cascade)
+  assessedBy User          @relation(fields: [assessedById], references: [id], onDelete: Restrict)
+
+  @@index([reviewItemId, attemptNumber])
+  @@index([reviewItemId, isLatest])
+  @@map("review_assessments")
+}
+
+/// In-app clarification request. Responses in this slice are demo/synthetic.
+model ReviewClarification {
+  id              String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reviewItemId    String                      @map("review_item_id") @db.Uuid
+  bidSubmissionId String                      @map("bid_submission_id") @db.Uuid
+  message         String
+  status          ReviewClarificationStatus   @default(requested)
+  requestedById   String                      @map("requested_by_id") @db.Uuid
+  requestedAt     DateTime                    @default(now()) @map("requested_at")
+  response        String?
+  respondedById   String?                     @map("responded_by_id") @db.Uuid
+  respondedAt     DateTime?                   @map("responded_at")
+  cancelledById   String?                     @map("cancelled_by_id") @db.Uuid
+  cancelledAt     DateTime?                   @map("cancelled_at")
+  synthetic       Boolean                     @default(true)
+  createdAt       DateTime                    @default(now()) @map("created_at")
+  updatedAt       DateTime                    @updatedAt @map("updated_at")
+
+  reviewItem  BidReviewItem @relation(fields: [reviewItemId], references: [id], onDelete: Cascade)
+  requestedBy User          @relation("ClarificationRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  respondedBy User?         @relation("ClarificationRespondedBy", fields: [respondedById], references: [id], onDelete: SetNull)
+  cancelledBy User?         @relation("ClarificationCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+
+  @@index([reviewItemId, status])
+  @@index([bidSubmissionId, status])
+  @@map("review_clarifications")
+}
+
+enum TenderEvaluationStatus {
+  not_started
+  in_progress
+  ready_for_decision
+  decision_recorded
+}
+
+enum EvaluationDecisionType {
+  accepted_for_further_evaluation
+  requires_clarification
+  not_recommended_for_further_evaluation
+}
+
+/// One officer evaluation workspace per tender. Status changes are explicit; evidence does not auto-complete evaluation.
+model TenderEvaluation {
+  id           String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenderId     String                   @unique @map("tender_id") @db.Uuid
+  status       TenderEvaluationStatus   @default(not_started)
+  startedAt    DateTime?                @map("started_at")
+  startedById  String?                  @map("started_by_id") @db.Uuid
+  readyAt      DateTime?                @map("ready_at")
+  readyById    String?                  @map("ready_by_id") @db.Uuid
+  recordedAt   DateTime?                @map("recorded_at")
+  recordedById String?                  @map("recorded_by_id") @db.Uuid
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  updatedAt    DateTime                 @updatedAt @map("updated_at")
+
+  tender     Tender               @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  startedBy  User?                @relation("EvaluationStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
+  readyBy    User?                @relation("EvaluationReadyBy", fields: [readyById], references: [id], onDelete: SetNull)
+  recordedBy User?                @relation("EvaluationRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+  notes      EvaluationNote[]
+  decisions  EvaluationDecision[]
+
+  @@index([status, updatedAt])
+  @@map("tender_evaluations")
+}
+
+/// Append-only officer evaluation note. Amendments create a new row.
+model EvaluationNote {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  evaluationId    String   @map("evaluation_id") @db.Uuid
+  bidSubmissionId String?  @map("bid_submission_id") @db.Uuid
+  note            String
+  attemptNumber   Int      @default(1) @map("attempt_number")
+  isLatest        Boolean  @default(true) @map("is_latest")
+  createdById     String   @map("created_by_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  evaluation TenderEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  bid        BidSubmission?   @relation(fields: [bidSubmissionId], references: [id], onDelete: Restrict)
+  createdBy  User             @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([evaluationId, isLatest])
+  @@index([evaluationId, bidSubmissionId, attemptNumber])
+  @@index([createdAt])
+  @@map("evaluation_notes")
+}
+
+/// Append-only officer decision-support record. Not an award, rejection, or automated system decision.
+model EvaluationDecision {
+  id              String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  evaluationId    String                   @map("evaluation_id") @db.Uuid
+  bidSubmissionId String                   @map("bid_submission_id") @db.Uuid
+  decision        EvaluationDecisionType
+  reason          String
+  attemptNumber   Int                      @default(1) @map("attempt_number")
+  isLatest        Boolean                  @default(true) @map("is_latest")
+  decidedById     String                   @map("decided_by_id") @db.Uuid
+  decidedAt       DateTime                 @default(now()) @map("decided_at")
+  createdAt       DateTime                 @default(now()) @map("created_at")
+
+  evaluation TenderEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  bid        BidSubmission    @relation(fields: [bidSubmissionId], references: [id], onDelete: Restrict)
+  decidedBy  User             @relation(fields: [decidedById], references: [id], onDelete: Restrict)
+
+  @@index([evaluationId, bidSubmissionId, isLatest])
+  @@index([evaluationId, bidSubmissionId, attemptNumber])
+  @@index([decidedAt])
+  @@map("evaluation_decisions")
+}

@@ -1,0 +1,63 @@
+import { describe, expect, it } from 'vitest';
+
+import { DEFAULT_ROLE_PERMISSIONS, PERMISSIONS, ROLES } from './catalog';
+
+describe('default RBAC catalog', () => {
+  it('does not grant ADMIN through a wildcard — only listed keys', () => {
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.ADMIN]).toContain(PERMISSIONS.ADMIN_SETTINGS);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.ADMIN]).not.toContain('inventory.approve');
+  });
+
+  it('grants document intelligence to manager and admin, not staff or user', () => {
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.MANAGER]).toContain(PERMISSIONS.DOCUMENTS_ANALYZE);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.MANAGER]).toContain(PERMISSIONS.DOCUMENTS_READ);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.ADMIN]).toContain(PERMISSIONS.DOCUMENTS_ANALYZE);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.STAFF]).not.toContain(PERMISSIONS.DOCUMENTS_ANALYZE);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.USER]).not.toContain(PERMISSIONS.DOCUMENTS_READ);
+  });
+
+  it('grants files.read and files.write to user, staff, manager, and admin', () => {
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.USER]).toContain(PERMISSIONS.FILES_READ);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.USER]).toContain(PERMISSIONS.FILES_WRITE);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.STAFF]).toContain(PERMISSIONS.FILES_READ);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.MANAGER]).toContain(PERMISSIONS.FILES_WRITE);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.ADMIN]).toContain(PERMISSIONS.FILES_WRITE);
+  });
+
+  it('grants jobs.read to staff, manager, and admin', () => {
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.STAFF]).toContain(PERMISSIONS.JOBS_READ);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.MANAGER]).toContain(PERMISSIONS.JOBS_READ);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.ADMIN]).toContain(PERMISSIONS.JOBS_READ);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.USER]).not.toContain(PERMISSIONS.JOBS_READ);
+  });
+
+  it('grants audit.read to manager and admin, not staff or user', () => {
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.MANAGER]).toContain(PERMISSIONS.AUDIT_READ);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.ADMIN]).toContain(PERMISSIONS.AUDIT_READ);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.STAFF]).not.toContain(PERMISSIONS.AUDIT_READ);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.USER]).not.toContain(PERMISSIONS.AUDIT_READ);
+  });
+
+  it('grants BharatBid write access to procurement officers and admin, read-only to reviewers', () => {
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.PROCUREMENT_OFFICER]).toEqual(
+      expect.arrayContaining([
+        PERMISSIONS.TENDERS_READ,
+        PERMISSIONS.TENDERS_WRITE,
+        PERMISSIONS.BIDDERS_READ,
+        PERMISSIONS.BIDDERS_WRITE,
+        PERMISSIONS.BIDS_READ,
+        PERMISSIONS.BIDS_WRITE,
+      ]),
+    );
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.REVIEWER]).toEqual(
+      expect.arrayContaining([PERMISSIONS.TENDERS_READ, PERMISSIONS.BIDDERS_READ, PERMISSIONS.BIDS_READ]),
+    );
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.REVIEWER]).not.toContain(PERMISSIONS.TENDERS_WRITE);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.REVIEWER]).not.toContain(PERMISSIONS.BIDS_WRITE);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.STAFF]).not.toContain(PERMISSIONS.TENDERS_READ);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.USER]).not.toContain(PERMISSIONS.BIDDERS_READ);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.MANAGER]).toContain(PERMISSIONS.TENDERS_READ);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.MANAGER]).not.toContain(PERMISSIONS.TENDERS_WRITE);
+    expect(DEFAULT_ROLE_PERMISSIONS[ROLES.ADMIN]).toContain(PERMISSIONS.TENDERS_WRITE);
+  });
+});
