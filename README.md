@@ -1,223 +1,462 @@
-# BharatBid
+<p align="center">
+  <sub>SMART INDIA HACKATHON · PROBLEM STATEMENT 26100</sub><br>
+  <sub>Ministry of Petroleum &amp; Natural Gas · CPCL / GeM procurement context</sub>
+</p>
 
-**Procurement Intelligence & Evidence-Based Bid Evaluation**
+<h1 align="center">BharatBid</h1>
 
-[![SIH](https://img.shields.io/badge/SIH-PS%2026100-0B3D2E?style=flat-square)](docs/BHARATBID_ARCHITECTURE.md)
-[![MoPNG / CPCL](https://img.shields.io/badge/Context-MoPNG%20%2F%20CPCL-1F4E79?style=flat-square)](PROBLEM_STATEMENT.md)
-[![Stack](https://img.shields.io/badge/Stack-React%20%2B%20Express%20%2B%20PostgreSQL-2D6A4F?style=flat-square)](#architecture)
-[![Sources](https://img.shields.io/badge/Government%20sources-DEMO%20%2F%20SYNTHETIC-C9A227?style=flat-square)](#honesty-bar)
+<p align="center">
+  <b>Procurement Intelligence &amp; Evidence-Based Bid Evaluation</b>
+</p>
 
-BharatBid is a **decision-support workspace** for government procurement officers. It puts tenders, bidder evidence, labeled source checks, cross-checks, officer review, explainable attention, comparative evaluation, and PDF reports in one place.
+<p align="center">
+  A decision-support workspace that turns fragmented bidder files into a traceable evaluation record — without replacing the officer.
+</p>
 
-It does **not** award, reject, rank, or disqualify a bidder. Officers remain the decision-makers.
+<p align="center">
+  <a href="#bharatbid-in-60-seconds">Understand</a> ·
+  <a href="#product-at-a-glance">Capabilities</a> ·
+  <a href="#how-bharatbid-thinks">Pipeline</a> ·
+  <a href="#system-architecture">Architecture</a> ·
+  <a href="#five-minute-demo">Demo</a> ·
+  <a href="#academic-project-documentation">Assignment</a> ·
+  <a href="#run-it-locally">Setup</a>
+</p>
 
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│  BharatBid                                          DEMO / SYNTHETIC    │
-│  Procurement Intelligence Command Center                                │
-├────────────┬─────────────────────────────────────────────────────────────┤
-│ Command    │  Active tenders · Submitted bids · Open reviews                │
-│ Center     │  Evidence gaps · Verification issues · Evaluations             │
-│ Tenders    │                                                             │
-│ Bidders    │  Bid intelligence · Officer advisory                          │
-│ Bids       │  Officer Review Priority queue                                 │
-│ Review     │  Evidence health · Verification health · Activity            │
-│ Attention  │                                                             │
-│ Evaluation │                                                             │
-│ Activity   │                                                             │
-└────────────┴─────────────────────────────────────────────────────────────┘
-```
-
-> **Honesty bar.** Adapters in this repository are **DEMO / SYNTHETIC / MOCK / SIMULATED**. They are not live GSTN, MCA21, Udyam, GeM, PAN, Income Tax, EPFO, ESIC, NSIC, DPIIT, BIS, or DigiLocker APIs. BharatBid is **not** an official Government of India product.
-
----
-
-## The problem this product is for
-
-CPSE procurement (GeM / CPCL-style) is document-heavy. Officers must inspect GST, PAN, MSME, OEM letters, Make in India declarations, and other evidence while also noticing mismatches across sources. That work is usually spread across folders, portals, and email.
-
-**BharatBid’s job** is to make that inspection **traceable**:
-
-1. What evidence was submitted?
-2. What did a labeled DEMO source return?
-3. Where do sources disagree?
-4. What still needs a human?
-5. What did the officer finally record?
-
-Smart India Hackathon — Problem Statement **26100** (Ministry of Petroleum & Natural Gas / CPCL context). Product statement: [PROBLEM_STATEMENT.md](PROBLEM_STATEMENT.md).
-
----
-
-## What you actually see in the UI
-
-The app is a **sidebar + workspace**. `/` redirects to Command Center after sign-in. The sidebar footer always shows **DEMO / SYNTHETIC**.
-
-### Sidebar (every authenticated screen)
-
-| Nav item | Route | What the officer is looking at |
-| --- | --- | --- |
-| Command Center | `/bharatbid` | Operational dashboard for the whole file |
-| Tenders | `/bharatbid/tenders` | Tender list, create, open a file |
-| Bidders | `/bharatbid/bidders` | Bidder profiles (PAN/GSTIN shown as provided / not provided) |
-| Bids | `/bharatbid/bids` | Submissions against tenders |
-| Review | `/bharatbid/review` | Officer review queue |
-| Attention | `/bharatbid/intelligence` | Officer Review Priority list |
-| Evaluation | `/bharatbid/evaluation` | Comparative evaluation workspaces |
-| Activity | `/bharatbid/activity` | Officer vs system timeline |
-| Notifications | `/bharatbid/notifications` | In-app inbox |
-
-### 1. Sign in — `/login`
-
-Product identity card: BharatBid, SIH 26100, DEMO / SYNTHETIC. Session uses JWT. Role is shown in the shell after login.
-
-| Role | Account | Password | In the UI |
-| --- | --- | --- | --- |
-| Procurement officer | `demo.officer@example.com` | `demo-password` | Create tenders, run DEMO checks, generate reports |
-| Reviewer | `demo.reviewer@example.com` | `demo-password` | Read the same files; write actions hidden / 403 |
-| Admin | `demo.admin@example.com` | `demo-password` | Platform administration |
-
-### 2. Command Center — `/bharatbid`
-
-This is the home screen. It **aggregates** existing records. It does not invent a second ranking engine.
-
-**KPI row (each card opens a workspace)**
-
-| Tile | Meaning |
-| --- | --- |
-| Active tenders | Open and under evaluation |
-| Submitted bids | Submitted / under review / finalized |
-| Open reviews | Open + in review |
-| Pending clarifications | In-app clarification still waiting |
-| Evidence gaps | Mandatory requirements without mapped evidence |
-| Verification issues | Mismatched, not found, or adapter error |
-| Evaluations in progress | Evaluation started or ready for decision |
-
-**Health panels on the same page**
-
-- **Officer Review Priority** — highest-attention bids first; click a row to open that bid’s Intelligence tab
-- **Evidence health** — available / missing / processing / conflicts
-- **Bid intelligence** — compliance coverage average, high review-risk count, pending requirements, officer advisory
-- **Verification health** — matched / mismatched / not found / error, by DEMO source
-- **Review and evaluation workload**
-- **Recent activity** — officer actions vs system events
-
-### 3. Tender file — `/bharatbid/tenders/:id`
-
-Reference, organisation, category, status, schedule, ordered requirements, and participating bids. Seed showcase tender: **`GEM/2026/B/CPCL/001`** (industrial valves).
-
-### 4. Bid workspace — `/bharatbid/bids/:id`
-
-This is the core product UI. Tabs change the URL. Counts in the tab labels come from the bid file.
-
-```
-Overview | Documents | Verification | Cross-Checks | Requirements | Review | Intelligence | Evaluation | Activity
-```
-
-| Tab | Route suffix | What it explains |
-| --- | --- | --- |
-| **Overview** | `/bids/:id` | Submission status, Officer Review Priority meter, **compliance coverage**, **review risk**, officer advisory, evidence and verification summaries |
-| **Documents** | `/documents` | Upload, type, version, requirement mapping, extraction, preview/download (authenticated) |
-| **Verification** | `/verification` | DEMO source list, run a check, field comparison, GST Return Filing attribute, source snapshot |
-| **Cross-Checks** | `/cross-checks` | GST ↔ MCA, GST ↔ Udyam, MCA ↔ Udyam. Consistent / difference / insufficient evidence |
-| **Requirements** | `/requirements` | Evidence Coverage matrix — missing evidence is not an automatic fail |
-| **Review** | `/review` | Machine finding vs officer assessment vs clarification. Machine finding is not a government result |
-| **Intelligence** | `/intelligence` | Attention factors, coverage factors, Make in India class, OEM comparison, DigiLocker DEMO marker, information gaps |
-| **Evaluation** | `/evaluation` | Jump into the tender comparison for this bid |
-| **Activity** | `/activity` | Audit trail for this bid |
-
-**Seed story to show judges**
-
-| Bid | Story |
-| --- | --- |
-| **Bayfront** `BID-GEM2026BCPCL001-0001` | Stronger evidence, DEMO matches, debarment not found |
-| **Delta** `BID-GEM2026BCPCL001-0002` | Attention-heavy: mismatches, GeM inactive, DEMO debarment record found (officer must review — not auto-reject) |
-
-### 5. Officer Review Priority — `/bharatbid/intelligence`
-
-A **0–100 review-priority indicator** with band, factor breakdown, and links back to evidence. It is **not** a winner score, fraud score, or award.
-
-**Procurement Review Risk** (LOW / MODERATE / HIGH / CRITICAL) is derived from those bands. A DEMO debarment `RECORD_FOUND` raises LOW/MODERATE to HIGH. Still not a fraud model.
-
-### 6. Comparative evaluation — `/bharatbid/evaluation/:tenderId`
-
-Side-by-side bids, requirement cells that open supporting evidence, officer notes, decision-support states. No “winner” column. **Generate report** downloads a PDF that repeats the decision-support disclaimer and **DEMO / SYNTHETIC DATA**.
-
----
-
-## How a bid is inspected (end to end)
-
-```mermaid
-flowchart LR
-  A[Login] --> B[Command Center]
-  B --> C[Tender]
-  C --> D[Bid]
-  D --> E[Documents]
-  E --> F[DEMO verification]
-  F --> G[Cross-checks]
-  G --> H[Requirements]
-  H --> I[Coverage / risk / advisory]
-  I --> J[Officer review]
-  J --> K[Officer Review Priority]
-  K --> L[Compare bids]
-  L --> M[Officer decision]
-  M --> N[PDF report]
-```
-
-Walkthrough with timing: [docs/BHARATBID_DEMO_GUIDE.md](docs/BHARATBID_DEMO_GUIDE.md).
-
----
-
-## What the product does (and what the labels mean)
-
-| Capability | In the product | What it is **not** |
-| --- | --- | --- |
-| DEMO adapters: GST, MCA, Udyam, GeM, PAN, Income Tax, EPFO, ESIC, DPIIT, NSIC, BIS, debarment | Verification tab, labeled **DEMO SOURCE** | Live government APIs |
-| GST return filing | Attribute on the DEMO GST snapshot (`FILED` / `NOT_FILED` / `DELAYED` / `NOT_AVAILABLE`) | GSTN filing download |
-| Make in India | `CLASS_I` / `CLASS_II` / `NOT_DECLARED` from the declaration | Automatic eligibility |
-| OEM authorization | Structured match vs bid claim | Brand-portal authenticity |
-| DigiLocker-style marker | Text marker `ISSUED` / not issued | Real DigiLocker |
-| Evidence & Compliance Coverage | Explainable 0–100 decision-support score | Official government compliance |
-| Officer advisory | Deterministic bullets from gaps and DEMO results | Approve / reject / winner text |
-| Officer Review Priority | Explainable attention | Ranking of bidders |
-| PDF reports | Decision-support record | Award letter |
-
-PAN is masked in verification lists (`ABCDE****F`). Search, audit metadata, and report tables omit PAN / GSTIN / CIN / Udyam.
-
----
-
-## Architecture
+<p align="center">
+  <img alt="SIH PS 26100" src="https://img.shields.io/badge/SIH-PS%2026100-1B3A6B?style=flat-square">
+  <img alt="Decision support" src="https://img.shields.io/badge/Role-Decision%20support-0F766E?style=flat-square">
+  <img alt="React Express PostgreSQL" src="https://img.shields.io/badge/Stack-React%20%2B%20Express%20%2B%20PostgreSQL-334155?style=flat-square">
+  <img alt="DEMO SYNTHETIC sources" src="https://img.shields.io/badge/Government%20sources-DEMO%20%2F%20SYNTHETIC-B45309?style=flat-square">
+  <img alt="License AGPL-3.0" src="https://img.shields.io/badge/License-AGPL--3.0--or--later-111827?style=flat-square">
+</p>
 
 ```text
-React / Vite  →  Express /api/v1  →  BharatBid services (backend/src/problem/)
-                                          ↓
-                                    Prisma → PostgreSQL
-                                          ↓
-                    Storage · extraction · notifications · PDF · audit · jobs
+  Tender  →  Evidence  →  DEMO SOURCE checks  →  Cross-checks
+       →  Coverage & review risk  →  Officer review  →  Comparison  →  Record
 ```
 
-| Layer | Where | Responsibility |
+> **Honesty bar.** Adapters in this repository are **DEMO / SYNTHETIC / MOCK / SIMULATED**. They are not live GSTN, MCA21, Udyam, GeM, PAN, Income Tax, EPFO, ESIC, NSIC, DPIIT, BIS, or DigiLocker APIs. BharatBid is **not** an official Government of India product. Officers remain responsible for every qualification decision.
+
+---
+
+## Choose your path
+
+| You are | Start here |
+| --- | --- |
+| **Hackathon judge** | [60 seconds](#bharatbid-in-60-seconds) → [the difference](#why-bharatbid) → [5-minute demo](#five-minute-demo) |
+| **Evaluator / faculty** | [Problem](#the-procurement-challenge) → [academic documentation](#academic-project-documentation) → [`docs/ASSIGNMENT.md`](docs/ASSIGNMENT.md) |
+| **Developer** | [Architecture](#system-architecture) → [setup](#run-it-locally) → [project structure](#project-structure) |
+| **Technical reviewer** | [Architecture](#system-architecture) → [security](#security) → [demo vs production](#demo-vs-production) |
+| **Product reader** | [Product at a glance](#product-at-a-glance) → [feature discovery](#feature-discovery) → [workflow](#end-to-end-officer-workflow) |
+
+---
+
+## BharatBid in 60 seconds
+
+1. An officer signs in. The shell is labeled **DEMO ENVIRONMENT**.
+2. **Command Center** shows real operational load: tenders, bids, reviews, evidence gaps, DEMO verification issues.
+3. A **tender** holds ordered requirements and participating submissions.
+4. A **bid** is the working file: documents, DEMO SOURCE verification, cross-checks, coverage, review, and activity.
+5. **Officer Review Priority** is a 0–100 *review-priority* indicator with factor links back to evidence — not a winner score.
+6. **Comparative evaluation** places bids side by side. There is no winner column.
+7. The officer records a **decision-support** state and can download a PDF that repeats the DEMO / SYNTHETIC disclaimer.
+
+**AI assists. Officers decide.**
+
+---
+
+## Product at a glance
+
+| Tender intelligence | Evidence layer | Bid evaluation |
+| :---: | :---: | :---: |
+| Tenders, requirements, status, participation | Upload, versioning, mapping, extraction | Comparison matrix, notes, officer decisions |
+| Command Center KPIs from live records | Authenticated preview / download | PDF decision-support report |
+
+| Verification | Decision intelligence | Governance |
+| :---: | :---: | :---: |
+| Labeled DEMO SOURCE adapters | Coverage score, review risk, officer advisory | JWT, RBAC, audit, activity timeline |
+| GST · MCA · Udyam · GeM · PAN · IT · EPFO · ESIC · DPIIT · NSIC · BIS · debarment | Explainable factors, never auto-award | Reviewer is read-focused; writes require `*.write` |
+
+Seed showcase: tender **`GEM/2026/B/CPCL/001`** (industrial valves). Stronger evidence: **Bayfront**. Attention-heavy: **Delta**.
+
+---
+
+## The procurement challenge
+
+CPSE / GeM evaluation is not a single form. It is a chain of documents, identifiers, and human judgment — usually spread across folders, portals, and email.
+
+```text
+Tender published
+      │
+      ▼
+Bidder documents collected          ←  often not tied to requirements
+      │
+      ▼
+GST / PAN / MSME / OEM / MII        ←  checks are hard to explain later
+      │
+      ▼
+Cross-source consistency            ←  mismatches live in memory or spreadsheets
+      │
+      ▼
+Technical / financial reading
+      │
+      ▼
+Review & clarification              ←  often outside the bid file
+      │
+      ▼
+Comparison & decision               ←  weak shared evidence matrix
+```
+
+**Where friction sits**
+
+| Pressure | What goes wrong without a workspace |
+| --- | --- |
+| Information fragmentation | GST, MCA, Udyam, OEM letters, and declarations are not one file |
+| Document volume | Mapping “this PDF supports this requirement” is manual |
+| Verification opacity | A “match” is hard to replay with source, timestamp, and field comparison |
+| Consistency | Two officers can treat the same mismatch differently |
+| Traceability | Later audit cannot see *why* a bid was sent for review |
+| Over-claiming | Spreadsheets invite language like “verified” or “winner” |
+
+Product statement: [`PROBLEM_STATEMENT.md`](PROBLEM_STATEMENT.md).
+
+---
+
+## Why BharatBid?
+
+```text
+Traditional
+  Documents  →  Manual search  →  Informal comparison  →  Decision
+
+BharatBid
+  Tender  →  Structured evidence  →  Labeled DEMO checks  →  Explainable review support  →  Officer record
+```
+
+> **What if bid evaluation could move from document hunting to evidence-driven decision intelligence — while remaining a human decision?**
+
+**BharatBid** is that workspace. It organizes tenders and bids, binds documents to requirements, runs **labeled DEMO SOURCE** checks, highlights disagreements, and supports officer review and comparison.
+
+It **automates assembly and explanation**. It does **not** award, reject, rank, or disqualify a bidder.
+
+> **Decision support, not decision replacement.**
+
+---
+
+## Feature discovery
+
+### 01 — Tender intelligence
+
+**What it does.** Officers create and manage tenders (reference, organisation, department, category, schedule, status), attach ordered requirements, and see participating bids.
+
+**Why it matters.** Evaluation starts from a shared file, not a private folder.
+
+**How BharatBid approaches it.** Status actions are explicit. Requirements can be activated or deactivated without deleting history. Command Center KPIs (`Active tenders`, evaluations in progress) read these records.
+
+Routes: `/bharatbid/tenders`, `/bharatbid/tenders/:id`.
+
+### 02 — Evidence intelligence
+
+**What it does.** Each bid has a document workspace: type, version, requirement mapping, extraction state, authenticated preview and download.
+
+**Why it matters.** A requirement without mapped evidence is a visible gap — not a silent miss.
+
+**How BharatBid approaches it.** Extraction may use the shared AI adapter; output is **untrusted structured data**, stored as extraction state. It is never executed as SQL or treated as an award. Bidder profile PAN/GSTIN on the bid overview is **Provided / Not provided**, not “government verified”.
+
+Route: `/bharatbid/bids/:id/documents`.
+
+### 03 — Verification & cross-checks
+
+**What it does.** Officers run identifier checks against **DEMO** registries (GST, MCA, Udyam, GeM, PAN, Income Tax, EPFO, ESIC, DPIIT, NSIC, BIS, debarment). Results are matched / mismatched / not found / error, with field comparison and a source snapshot.
+
+**Why it matters.** A check is inspectable: source, mode, timestamp, identifier origin, evidence.
+
+**How BharatBid approaches it.** Every result is labeled **DEMO SOURCE**. GST return filing is an *attribute* on the DEMO GST snapshot (`FILED` / `NOT_FILED` / `DELAYED` / `NOT_AVAILABLE`), not a GSTN download. Debarment `RECORD_FOUND` requires officer review; it never auto-rejects. PAN is masked in verification lists.
+
+Cross-checks: GST ↔ MCA, GST ↔ Udyam, MCA ↔ Udyam — consistent, difference, or insufficient evidence.
+
+Routes: `/bharatbid/bids/:id/verification`, `.../cross-checks`.
+
+### 04 — Bid evaluation & comparison
+
+**What it does.** Requirements show Evidence Coverage (missing evidence is **not** an automatic fail). Comparative evaluation places bids side by side; cells open supporting evidence. Officers record notes and a decision-support state:
+
+- accepted for further evaluation
+- requires clarification
+- not recommended for further evaluation
+
+**Why it matters.** Comparison shares one matrix instead of parallel spreadsheets.
+
+**How BharatBid approaches it.** No winner column. **Generate report** (`bids.write`) downloads a PDF with the decision-support disclaimer and **DEMO / SYNTHETIC DATA**.
+
+Routes: `/bharatbid/evaluation`, `/bharatbid/evaluation/:tenderId`.
+
+### 05 — Decision intelligence
+
+**What it does.** Compute-on-read indicators from existing records:
+
+| Indicator | Meaning | What it is not |
 | --- | --- | --- |
-| UI | `frontend/src/pages/bharatbid/` | Workspaces above |
-| API | `backend/src/routes/bharatbid.routes.ts` | Auth + RBAC envelopes |
+| Evidence & Compliance Coverage | Explainable 0–100 from mapped evidence and DEMO results | Official government compliance |
+| Officer Review Priority | 0–100 review-priority with band and factor links | Winner / fraud / award score |
+| Procurement Review Risk | LOW / MODERATE / HIGH / CRITICAL from attention bands; DEMO debarment can raise LOW/MODERATE to HIGH | Fraud model |
+| Officer advisory | Deterministic bullets from gaps and DEMO results | Approve / reject / winner text |
+| Make in India class | `CLASS_I` / `CLASS_II` / `NOT_DECLARED` from declarations | Automatic eligibility |
+| OEM authorization | Structured match vs bid claim | Brand-portal authenticity |
+| DigiLocker-style marker | Synthetic `ISSUED` text marker | Real DigiLocker |
+
+Routes: `/bharatbid/intelligence`, `/bharatbid/bids/:id/intelligence`. Detail: [`docs/BHARATBID_FINAL_INTELLIGENCE_FEATURES.md`](docs/BHARATBID_FINAL_INTELLIGENCE_FEATURES.md).
+
+### 06 — Governance & reporting
+
+**What it does.** JWT access + rotating refresh; bcrypt passwords; RBAC (`procurement_officer`, `reviewer`, `admin`, plus catalog roles). In-app notifications. Activity timeline (officer vs system). Audit events omit PAN / GSTIN / CIN / Udyam, extracted text, storage keys, and tokens.
+
+**Why it matters.** A later reader can see *what happened* without leaking identifiers in logs and reports.
+
+Routes: `/bharatbid/review`, `/bharatbid/activity`, `/bharatbid/notifications`. Security: [`docs/BHARATBID_SECURITY.md`](docs/BHARATBID_SECURITY.md).
+
+---
+
+## How BharatBid thinks
+
+This pipeline matches the **implemented** officer path. Command Center **aggregates** it; it does not invent a second scoring engine.
+
+```mermaid
+flowchart TB
+  IN[Procurement input: tender, bidder, documents]
+  IN --> TI[Tender intelligence]
+  TI --> EX[Document evidence & extraction]
+  EX --> VR[DEMO registration verification]
+  VR --> XC[Cross-portal validation]
+  XC --> CV[Coverage, review risk, advisory]
+  CV --> RV[Officer review & clarification]
+  RV --> AT[Officer Review Priority]
+  AT --> EV[Comparative evaluation]
+  EV --> DS[Officer decision-support record]
+  DS --> RP[PDF report & audit trail]
+```
+
+---
+
+## End-to-end officer workflow
+
+```text
+01 Sign in
+      ↓
+02 Command Center — what needs attention
+      ↓
+03 Open tender — requirements & participation
+      ↓
+04 Open bid — collect / inspect documents
+      ↓
+05 Run DEMO SOURCE verification
+      ↓
+06 Cross-check identifiers
+      ↓
+07 Read coverage & gaps
+      ↓
+08 Officer review (machine finding ≠ government result)
+      ↓
+09 Compare bids
+      ↓
+10 Record decision-support state
+      ↓
+11 Generate PDF · inspect activity
+```
+
+Timed script: [`docs/BHARATBID_DEMO_GUIDE.md`](docs/BHARATBID_DEMO_GUIDE.md).
+
+---
+
+## User roles
+
+Seeded SIH accounts all use password `demo-password`.
+
+| Role | Responsibility | In this product |
+| --- | --- | --- |
+| **Procurement officer** `demo.officer@example.com` | Own the file | Create tenders, submit bids, run DEMO checks, assess reviews, generate reports |
+| **Reviewer** `demo.reviewer@example.com` | Inspect without mutating officer workflows | Same read path; Create Tender / Run verification / Generate Report hidden and **403** on the API |
+| **Administrator** `demo.admin@example.com` | Platform administration | Full RBAC catalog |
+
+The RBAC catalog also includes infrastructure roles used by tests (`manager`, `staff`, `user`). Frontend labels prefer officer / reviewer / admin. Backend `requirePermission` is authoritative; UI checks are UX only.
+
+Permissions used by BharatBid routes: `tenders.read` / `tenders.write`, `bidders.read` / `bidders.write`, `bids.read` / `bids.write`, plus `notifications.read` for the inbox.
+
+---
+
+## Project maturity
+
+| Area | Status | Evidence in this repo |
+| --- | --- | --- |
+| Frontend workspaces | Implemented | `frontend/src/pages/bharatbid/` |
+| Backend domain API | Implemented | `backend/src/routes/bharatbid.routes.ts` |
+| Database & migrations | Implemented | `database/prisma/` |
+| Authentication / RBAC | Implemented | JWT + catalog in PostgreSQL |
+| DEMO verification adapters | Implemented (simulated) | `backend/src/problem/verification/` |
+| Evaluation & PDF reports | Implemented | Comparison workspace + `report.ts` |
+| Testing | Implemented | Vitest unit, HTTP/integration, API e2e, GitHub Actions |
+| Documentation | Implemented | `docs/`, this README, assignment document |
+| Live government APIs | Not in this submission | Explicit DEMO SOURCE only |
+| Production hardening | Partial | Local-dev JWT placeholders; demo password for SIH only |
+
+---
+
+## System architecture
+
+```mermaid
+flowchart TB
+  UI[React / Vite UI]
+  API[Express /api/v1]
+  AUTH[JWT + RBAC]
+  DOM[BharatBid domain services]
+  PG[(PostgreSQL / Prisma)]
+  ST[Object storage]
+  JOB[Jobs / worker]
+  PDF[pdf-lib reports]
+  N[Notifications]
+  AUD[Audit]
+
+  UI --> API
+  API --> AUTH
+  API --> DOM
+  DOM --> PG
+  DOM --> ST
+  DOM --> PDF
+  DOM --> N
+  DOM --> AUD
+  JOB --> DOM
+```
+
+| Layer | Location | Responsibility |
+| --- | --- | --- |
+| UI | `frontend/src/pages/bharatbid/` | Command Center and workspaces |
+| API | `backend/src/routes/bharatbid.routes.ts` | `/api/v1` envelopes + permission gates |
+| Controller | `backend/src/controllers/bharatbid.controller.ts` | HTTP + Zod |
 | Domain | `backend/src/problem/` | Tenders, evidence, verification, intelligence, review, evaluation |
+| Coverage | `backend/src/problem/coverage/` | Coverage, review risk, advisory, MII, OEM, gaps — **compute-on-read** |
 | Adapters | `backend/src/problem/verification/` | DEMO registries only |
-| Coverage | `backend/src/problem/coverage/` | Coverage, review risk, advisory, MII, OEM, gaps — compute-on-read |
+| Reports | `backend/src/problem/operations/report.ts` | Officer-downloadable PDFs |
 
-Shared infrastructure BharatBid uses: authentication, RBAC, audit, storage, document extraction, PDF/reports, notifications, optional Redis/BullMQ.
+Shared infrastructure: auth, RBAC, audit, storage, document extraction, optional Redis/BullMQ, PDF renderer, feature flags, `DEMO_MODE`.
 
-Full write-up: [docs/BHARATBID_ARCHITECTURE.md](docs/BHARATBID_ARCHITECTURE.md).
+Full write-up: [`docs/BHARATBID_ARCHITECTURE.md`](docs/BHARATBID_ARCHITECTURE.md) · decisions: [`ARCHITECTURE_DECISION.md`](ARCHITECTURE_DECISION.md).
+
+---
+
+## Technology stack
+
+Badges reflect packages and services **in this repository**.
+
+### Frontend
+
+React 18, React Router 6, Vite 6, TypeScript, Tailwind CSS, Testing Library / Vitest.
+
+### Backend
+
+Express, Zod, Prisma, bcryptjs, jsonwebtoken, Helmet, Multer, Pino, pdf-lib, BullMQ, ioredis.
+
+### Data & jobs
+
+PostgreSQL 16 (host port **5433**, database `hackathon`), Redis 7 (queues, rate limits, optional cache).
+
+### Authentication
+
+JWT access + rotating refresh; passwords hashed with bcrypt.
+
+### AI (document intelligence)
+
+Provider-agnostic `AIService` (`gemini` or `mock`). Structured output is untrusted. No winner model. `FEATURE_AI` / `AI_ENABLED` in `.env.example`.
+
+### Infrastructure
+
+Docker Compose (frontend, API, worker, Postgres, Redis). GitHub Actions CI (and optional CD). Node.js **20+** (`.nvmrc`).
+
+---
+
+## Project structure
+
+```text
+BharatBid/
+├── frontend/                 # React workspaces (Command Center, tenders, bids, …)
+├── backend/                  # Express API, domain services, adapters
+│   └── src/problem/          # BharatBid business rules
+├── workers/                  # BullMQ consumer (same backend image in Docker)
+├── database/prisma/         # Schema, migrations, seed
+├── docs/                     # Architecture, security, demo, assignment
+├── infra/                    # Compose Postgres/Redis, healthchecks
+├── .github/workflows/        # CI / CD
+├── PROBLEM_STATEMENT.md
+├── ARCHITECTURE_DECISION.md
+└── README.md
+```
+
+The Compose project name remains `hackathon-starter-kit` so existing Docker volumes stay attached. Runtime identity is `APP_NAME=BharatBid`.
+
+---
+
+## Five-minute demo
+
+**Needs:** stack running ([setup](#run-it-locally)). **Account:** `demo.officer@example.com` / `demo-password`.
+
+| Minute | Do this | Say this |
+| --- | --- | --- |
+| 0 | `/login` | DEMO / SYNTHETIC. Officers decide. |
+| 1 | Command Center `/bharatbid` | KPIs are real records, not a second ranking engine. |
+| 2 | Open `GEM/2026/B/CPCL/001` | Requirements and participation live on one tender. |
+| 3 | Open **Bayfront** bid → Documents + Verification | DEMO SOURCE. Field comparison is the evidence. |
+| 4 | Delta bid → Intelligence, then Evaluation compare | Review priority ≠ winner. No winner column. |
+| 5 | Generate report · Activity | PDF repeats DEMO / SYNTHETIC. Audit is inspectable. |
+
+Do **not** say on stage: winner, best bidder, automatically approved, government verified, live GST integration, fraud detected.
+
+Full 15-minute script: [`docs/BHARATBID_DEMO_GUIDE.md`](docs/BHARATBID_DEMO_GUIDE.md).
+
+---
+
+## Screenshots
+
+This repository does **not** currently ship screenshot assets (no `png`/`jpg` files in the tree).
+
+**To add later** (store under `docs/assets/` and link here): Command Center, tender file, bid Documents, Verification evidence drawer, Cross-checks, Requirements matrix, Officer Review Priority, comparative evaluation, PDF first page, Activity timeline, login card showing DEMO / SYNTHETIC.
+
+Until then, run the app: http://127.0.0.1:5173/
+
+---
+
+## Demo vs production
+
+### Implemented
+
+Tender / bidder / bid workflows, documents, DEMO verification and cross-checks, requirement intelligence, officer review, Officer Review Priority, comparative evaluation, PDF reports, Command Center, notifications, activity, JWT + RBAC, audit redaction, Docker Compose, CI.
+
+### Demo / simulated
+
+All government-source adapters. Seed tenders and bids (including `GEM/2026/B/CPCL/001`, Bayfront, Delta). DigiLocker-style authenticity marker. GST return *attribute* on DEMO GST. Email and SMS providers default **off** (`EMAIL_ENABLED=false`, `SMS_ENABLED=false`).
+
+### Not in this submission
+
+Live GSTN / MCA21 / Udyam / GeM / PAN / IT / EPFO / ESIC / NSIC / DPIIT / BIS / DigiLocker. Automatic award or ranking. Fraud detection. Government certification of this software. Production-grade JWT issuers (`.env.example` uses change-me secrets).
+
+Future items that were **explicitly not built**: [`docs/BHARATBID_FUTURE_SCOPE.md`](docs/BHARATBID_FUTURE_SCOPE.md).
 
 ---
 
 ## Run it locally
 
-**Needs:** Node.js 20+ and Docker Desktop (PostgreSQL + Redis).
+**Prerequisites:** Node.js 20+, npm 10+, Docker Desktop (PostgreSQL + Redis).
 
 On Windows, keep `127.0.0.1` in `DATABASE_URL` (see `.env.example`). `localhost` can resolve to IPv6 and Prisma fails with P1001.
 
+```text
+Prerequisites  →  clone  →  npm install  →  .env
+      →  Postgres/Redis  →  migrate  →  seed  →  npm run dev
+```
+
 ```bash
-npm install
+git clone https://github.com/upadhyaydhruv202-hue/Bharatbid.git
+cd Bharatbid
 cp .env.example .env
+npm install
 npm run deps:up
 npm run db:migrate
 npm run db:seed
@@ -226,14 +465,14 @@ npm run dev
 
 | Surface | URL |
 | --- | --- |
-| Command Center | http://127.0.0.1:5173/ |
+| Command Center | http://127.0.0.1:5173/bharatbid |
 | Sign in | http://127.0.0.1:5173/login |
 | API | http://127.0.0.1:5000 |
 | Health | http://127.0.0.1:5000/health |
 
-Full-stack Docker: `docker compose up --build`. See [docs/getting-started.md](docs/getting-started.md).
+Full-stack Docker: `docker compose up --build`. See [`docs/getting-started.md`](docs/getting-started.md) and [`docs/docker.md`](docs/docker.md).
 
-Demo database name is `hackathon` on host port **5433**. Do not run `npm run db:reset` against a working demo. The Compose project name remains `hackathon-starter-kit` so existing Docker volumes stay attached. Runtime identity is `APP_NAME=BharatBid`.
+Do **not** run `npm run db:reset` against a working demo database.
 
 ```bash
 npm run lint
@@ -252,31 +491,248 @@ npm run test:integration -w backend
 
 ---
 
-## DEMO / MOCK / SYNTHETIC — do not claim these in a demo
+## Why BharatBid matters
 
-* Live GSTN / MCA21 / Udyam / GeM / PAN / IT / EPFO / ESIC / NSIC / DPIIT / BIS / DigiLocker
-* Automatic award, rejection, or bidder ranking
-* Fraud detection or a government “trust score”
-* Government certification of this software
-* Demo passwords outside local SIH use
+In a public-procurement setting, the valuable outcome is not a louder dashboard. It is a file another officer can reopen:
 
-Do **not** say on stage: winner, best bidder, automatically approved, government verified, live GST integration, fraud detected.
+- **Transparency** — DEMO checks and officer assessments are visible, not implied.
+- **Traceability** — documents, checks, reviews, and decisions stay on the bid.
+- **Consistency** — coverage and attention use the same rules for every bid in the tender.
+- **Human control** — advisory language never pretends to be an award.
+
+No claim is made here about rupee savings, live department adoption, or production certification.
 
 ---
 
-## Documentation
+## Roadmap
 
-| Document | Purpose |
+```text
+Foundation (auth, RBAC, storage, jobs)     ✓
+Core procurement (tenders, bidders, bids)  ✓
+Evidence + DEMO verification                 ✓
+Review + Officer Review Priority             ✓
+Comparative evaluation + PDF                ✓
+Command Center + intelligence layer         ✓
+Live authorized government adapters         ○  future — legal access required
+Async reports at large scale                ○  future
+Production secret management / hardening    ○  future
+Winner ranking / automatic award            ✕  will not implement
+```
+
+---
+
+## Academic project documentation
+
+Concise README map. Full assignment write-up: **[`docs/ASSIGNMENT.md`](docs/ASSIGNMENT.md)**.
+
+<details>
+<summary><b>Requirements, use cases, traceability, and academic outline</b></summary>
+
+### Functional requirements (from the running product)
+
+| ID | Requirement | Priority |
+| --- | --- | --- |
+| FR-01 | Authenticated session (JWT) with role shown in the shell | High |
+| FR-02 | Tender CRUD, status, ordered requirements | High |
+| FR-03 | Bidder profiles with identifier *presence*, not government verification | High |
+| FR-04 | Bid submissions linked to tender and bidder | High |
+| FR-05 | Document upload, mapping, extraction, authenticated download | High |
+| FR-06 | DEMO SOURCE verification with inspectable evidence | High |
+| FR-07 | Cross-source checks (GST ↔ MCA ↔ Udyam) | High |
+| FR-08 | Requirement Evidence Coverage (missing ≠ automatic fail) | High |
+| FR-09 | Officer review: machine finding vs assessment vs clarification | High |
+| FR-10 | Officer Review Priority with factor traceability | High |
+| FR-11 | Comparative evaluation without a winner column | High |
+| FR-12 | Decision-support PDF with DEMO disclaimer | High |
+| FR-13 | Command Center aggregating existing records | High |
+| FR-14 | Activity / notifications | Medium |
+
+### Non-functional (supported, not certified)
+
+| ID | Area | Stance in this repo |
+| --- | --- | --- |
+| NFR-01 | Security | JWT, bcrypt, RBAC, helmet, CORS, rate limits, SSRF helper — not a pentest certificate |
+| NFR-02 | Auditability | Audit + activity; identifiers omitted from audit metadata and report tables |
+| NFR-03 | Honesty | DEMO_MODE labelling in UI and reports |
+| NFR-04 | Maintainability | TypeScript, Prisma migrations, Vitest, ESLint |
+| NFR-05 | Availability | Compose healthchecks; `/health` and `/ready` |
+| NFR-06 | Usability | Light-first officer UI; reviewer write actions hidden |
+
+### Use cases
+
+```mermaid
+flowchart LR
+  O[Procurement officer] --> L[Sign in]
+  O --> T[Manage tender]
+  O --> B[Inspect bid evidence]
+  O --> V[Run DEMO verification]
+  O --> R[Review & record decision support]
+  O --> P[Download PDF]
+  RV[Reviewer] --> L
+  RV --> B
+```
+
+### Requirement → module → implementation
+
+| Requirement | Module | Implementation |
+| --- | --- | --- |
+| FR-01 | Auth | `backend/src/auth/`, `frontend/src/auth/` |
+| FR-02 | Tenders | `tender.service` + Tenders / Tender Detail pages |
+| FR-05 | Documents | Bid documents panel + storage + extraction |
+| FR-06 | Verification | `verification/` adapters + Verification tab |
+| FR-10 | Intelligence | `coverage/` + Intelligence page / bid tab |
+| FR-11 | Evaluation | Evaluation workspace + `EvaluationDecision` |
+| FR-12 | Reports | `operations/report.ts` + pdf-lib |
+
+### Aim, scope, limitations (short)
+
+- **Aim:** Demonstrate an evidence-first bid compliance *workspace* for SIH 26100.
+- **In scope:** Decision support on synthetic / DEMO data; officer remains accountable.
+- **Out of scope:** Live government APIs; automatic award; claiming official compliance.
+
+References for the assignment document include SIH PS 26100, GeM procurement context as *problem setting* (not a live integration), and the stack documentation linked from [`docs/README.md`](docs/README.md).
+
+</details>
+
+---
+
+<details>
+<summary><b>Under the hood — API, data, security, tests, environment</b></summary>
+
+### API overview
+
+Prefix: `/api/v1`. Auth: `POST /api/v1/auth/login` (see [`docs/auth.md`](docs/auth.md)). BharatBid routes are permission-gated. Conventions: [`docs/api-conventions.md`](docs/api-conventions.md).
+
+```text
+Command Center
+├── GET /bharatbid/dashboard
+├── GET /bharatbid/search
+└── GET /bharatbid/activity
+
+Tenders / requirements / bids / bidders
+├── GET|POST /tenders
+├── GET|PATCH /tenders/:id
+├── POST /tenders/:id/status
+├── GET|POST /tenders/:id/requirements
+├── GET|POST /bidders
+└── GET|POST /bids  ·  POST /bids/:id/submit
+
+Evidence & DEMO verification
+├── GET|POST /bids/:id/documents
+├── GET /bids/:bidId/documents/:id/download
+├── GET /verification-sources
+├── GET|POST /bids/:id/verifications
+└── GET|POST /bids/:id/cross-verifications
+
+Intelligence, review, evaluation
+├── GET /bids/:id/intelligence
+├── GET /intelligence/bids
+├── GET|POST /reviews…
+├── GET /tenders/:id/evaluation/comparison
+└── GET /tenders/:id/reports/evaluation
+```
+
+### Database (conceptual)
+
+```mermaid
+erDiagram
+  User ||--o{ Tender : creates
+  Tender ||--o{ TenderRequirement : defines
+  Tender ||--o{ BidSubmission : receives
+  Bidder ||--o{ BidSubmission : submits
+  BidSubmission ||--o{ BidDocument : attaches
+  BidSubmission ||--o{ BidVerification : checks
+  BidSubmission ||--o{ BidCrossVerification : compares
+  BidSubmission ||--o{ BidReviewItem : reviews
+  BidReviewItem ||--o{ ReviewAssessment : assesses
+  BidReviewItem ||--o{ ReviewClarification : clarifies
+  Tender ||--o| TenderEvaluation : evaluates
+  TenderEvaluation ||--o{ EvaluationNote : notes
+  TenderEvaluation ||--o{ EvaluationDecision : records
+```
+
+Schema: `database/prisma/schema.prisma`. Guide: [`docs/database.md`](docs/database.md).
+
+### Security
+
+- JWT access + rotating refresh; bcrypt hashes
+- RBAC reloaded from PostgreSQL on authenticate (not trusted from a JWT role claim alone)
+- Authenticated document download; no public storage URLs in the UI
+- SSRF checks on user-controlled URLs
+- Rate limits, CORS allowlist, secure headers, body limits
+- Search does not query PAN/GSTIN in the SIH UI
+- Frontend cannot set officer identity or scores
+
+Not claimed: production government API access, formal certification, hardened production secrets. Demo password is **local SIH only**.
+
+### Testing
+
+Vitest across `frontend/`, `backend/src`, `backend/tests`, `workers/`. Integration/e2e use `hackathon_test`. CI: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — lint, typecheck, unit, integration, API e2e, secret scan, audit, image build, Compose smoke. Coverage percentages are **not** asserted in this README; run `npm run test:coverage` locally.
+
+### Environment (placeholders only)
+
+Copy `.env.example`. Do not commit `.env`. Representative keys:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/hackathon
+REDIS_URL=redis://127.0.0.1:6379
+JWT_ACCESS_SECRET=
+JWT_REFRESH_SECRET=
+DEMO_MODE=true
+AI_ENABLED=true
+AI_PROVIDER=gemini
+GEMINI_API_KEY=
+EMAIL_ENABLED=false
+SMS_ENABLED=false
+```
+
+Full catalog: [`docs/configuration.md`](docs/configuration.md).
+
+</details>
+
+---
+
+## Architecture decisions
+
+React/Vite, Express, PostgreSQL/Prisma, and optional Redis/BullMQ already implement the SIH demo — a parallel stack was rejected. Live government APIs are out of scope without credentials and legal access. Copilot, RAG, Odoo, and unused kit product chrome were removed from this SIH repository.
+
+Summary: [`ARCHITECTURE_DECISION.md`](ARCHITECTURE_DECISION.md).
+
+---
+
+## Deployment
+
+**Supported for demonstration:** Docker Compose (`docker compose up --build`) and hybrid host Node + Compose Postgres/Redis.
+
+CD workflow exists ([`docs/ci-cd.md`](docs/ci-cd.md)) as an optional GitHub Actions pipeline. This README does **not** claim a production-certified government deployment.
+
+---
+
+## Team
+
+| | |
 | --- | --- |
-| [docs/BHARATBID_ARCHITECTURE.md](docs/BHARATBID_ARCHITECTURE.md) | Product architecture |
-| [docs/BHARATBID_DEMO_GUIDE.md](docs/BHARATBID_DEMO_GUIDE.md) | 15-minute live demonstration |
-| [docs/BHARATBID_SECURITY.md](docs/BHARATBID_SECURITY.md) | Security posture |
-| [docs/BHARATBID_FINAL_INTELLIGENCE_FEATURES.md](docs/BHARATBID_FINAL_INTELLIGENCE_FEATURES.md) | DEMO adapters, coverage, risk, advisory |
-| [docs/BHARATBID_SIH_READINESS_CHECKLIST.md](docs/BHARATBID_SIH_READINESS_CHECKLIST.md) | Submission checklist |
-| [docs/README.md](docs/README.md) | Full documentation index |
+| Repository | [upadhyaydhruv202-hue/Bharatbid](https://github.com/upadhyaydhruv202-hue/Bharatbid) |
+| Git author on `main` | Dhruv Upadhyay |
+
+Additional contributors can be listed here as they appear on the repository.
 
 ---
 
 ## License
 
 [AGPL-3.0-or-later](LICENSE). Third-party dependencies remain under their own licenses.
+
+---
+
+## References
+
+- [PROBLEM_STATEMENT.md](PROBLEM_STATEMENT.md) — SIH Problem Statement 26100 framing used by this repo
+- [docs/README.md](docs/README.md) — documentation index
+- [docs/ASSIGNMENT.md](docs/ASSIGNMENT.md) — software engineering assignment document
+- [docs/BHARATBID_DEMO_GUIDE.md](docs/BHARATBID_DEMO_GUIDE.md) — live demo script
+- [docs/BHARATBID_SECURITY.md](docs/BHARATBID_SECURITY.md) — security posture
+- [CHANGELOG.md](CHANGELOG.md) — documentation redesign notes
+- React, Express, Prisma, PostgreSQL, Vite, Tailwind, Vitest, Docker — as used in `package.json` / Compose files
+
+GeM / CPSE procurement is the **problem context**. This codebase does not connect to production GeM.

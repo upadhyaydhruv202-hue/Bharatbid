@@ -4,6 +4,7 @@ Product documentation for **BharatBid** (SIH Problem Statement 26100):
 
 | Document | Purpose |
 | --- | --- |
+| [Academic assignment](ASSIGNMENT.md) | Software engineering project document |
 | [BharatBid architecture](BHARATBID_ARCHITECTURE.md) | Product architecture |
 | [SIH demo guide](BHARATBID_DEMO_GUIDE.md) | Live demonstration script |
 | [Security](BHARATBID_SECURITY.md) | Product security posture |
@@ -49,5 +50,6 @@ Shared infrastructure still used by BharatBid:
 Repository-level documents:
 
 * `README.md`
+* `CHANGELOG.md` — documentation redesign notes
 * `PROBLEM_STATEMENT.md`
 * `ARCHITECTURE_DECISION.md`
