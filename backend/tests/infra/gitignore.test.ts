@@ -138,6 +138,8 @@ describe('.gitignore hygiene', () => {
     expect(isIgnored('backend/job-queue/job.json')).toBe(true);
     expect(isIgnored('uploads/file.bin')).toBe(true);
     expect(isIgnored('coverage/lcov.info')).toBe(true);
+    expect(isIgnored('backend/src/problem/coverage/index.ts')).toBe(false);
+    expect(isIgnored('backend/src/integrations/reports/index.ts')).toBe(false);
     expect(isIgnored('frontend/dist/index.html')).toBe(true);
     expect(isIgnored('node_modules/left-pad/index.js')).toBe(true);
     expect(isIgnored('secrets/prod.pem')).toBe(true);

@@ -19,6 +19,10 @@ dist/
 build/
 coverage/
 
+# BharatBid source module (must stay tracked; coverage/ would hide it)
+!backend/src/problem/coverage/
+!backend/src/problem/coverage/**
+
 # Logs
 *.log
 logs/
@@ -44,7 +48,7 @@ desktop.ini
 
 # Test
 .nyc_output/
-reports/
+/reports/
 playwright-report/
 test-results/
 
