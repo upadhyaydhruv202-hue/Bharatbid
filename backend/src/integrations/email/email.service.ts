@@ -5,7 +5,7 @@ import type { JobQueue } from '../../jobs/queue';
 import { IdempotencyStore } from '../../lib/idempotency';
 import { MemoryKvStore } from '../../lib/kv';
 import { parseWithSchema } from '../../schemas/parse';
-import { isDemoMode, shouldMockExternalIntegrations } from '../../features';
+import { isDemoMode } from '../../features';
 import type { AppConfig } from '../../types/config';
 import type { AppLogger } from '../../utils/logger';
 import {
@@ -197,7 +197,9 @@ export function createEmailService(options: EmailServiceOptions): EmailService {
 }
 
 export function createEmailProvider(config: AppConfig, fetchImpl?: typeof fetch): EmailProvider {
-  if (shouldMockExternalIntegrations(config) || !config.email.enabled || config.email.provider === 'mock') {
+  // DEMO_MODE alone must not swallow SMTP — otherwise local email OTP never reaches an inbox.
+  // Mirror SMS: mock only for AUTH_DEMO_MODE, disabled email, or explicit mock provider.
+  if (config.auth.demoAuth || !config.email.enabled || config.email.provider === 'mock') {
     return new MockEmailProvider();
   }
 
