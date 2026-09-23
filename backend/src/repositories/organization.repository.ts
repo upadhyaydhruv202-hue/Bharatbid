@@ -35,6 +35,18 @@ export class OrganizationRepository {
     }
   }
 
+  async attachAsDefaultOrganization(organizationId: string, userId: string): Promise<void> {
+    try {
+      await this.db.organizationMember.updateMany({
+        where: { userId },
+        data: { isDefault: false },
+      });
+      await this.addMember(organizationId, userId, true);
+    } catch (error) {
+      mapPrismaError(error);
+    }
+  }
+
   async listForUser(userId: string): Promise<OrganizationMembership[]> {
     try {
       const rows = await this.db.organizationMember.findMany({

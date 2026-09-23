@@ -12,6 +12,7 @@ import { AuthenticationError, AuthorizationError, ConflictError } from '../error
 import { AUDIT_ACTIONS } from '../constants';
 import type { AuditService } from '../audit/audit.service';
 import { withTransaction } from '../lib/transaction';
+import { ROLES } from '../rbac/catalog';
 import { createRepositories, type Repositories } from '../repositories';
 import type { UserWithRoles } from '../repositories/types';
 
@@ -22,6 +23,9 @@ export interface AuthServiceDependencies {
   passwordService: PasswordService;
   tokenService: TokenService;
   defaultRole: string;
+  /** When true, new accounts receive officer access and the seeded demo tenant. */
+  demoMode?: boolean;
+  demoOrganizationId?: string | null;
   revocation?: TokenRevocationStore | null;
   onUserCreated?: (user: { id: string; email: string; displayName: string }) => void | Promise<void>;
   audit?: AuditService | null;
@@ -49,11 +53,7 @@ export class AuthService {
         throw error;
       }
 
-      const role = await repos.roles.findByName(this.deps.defaultRole);
-      if (role) {
-        await repos.roles.assignUser(created.id, role.id);
-      }
-      await repos.organizations.createPersonalWorkspace(created.id, input.displayName);
+      await this.provisionNewUserAccess(repos, created.id, input.displayName);
 
       const user = (await repos.users.findByIdWithRoles(created.id)) ?? {
         ...created,
@@ -347,11 +347,7 @@ export class AuthService {
         displayName: input.displayName,
         phone: phone ?? null,
       });
-      const role = await repos.roles.findByName(this.deps.defaultRole);
-      if (role) {
-        await repos.roles.assignUser(created.id, role.id);
-      }
-      await repos.organizations.createPersonalWorkspace(created.id, input.displayName, input.organizationName);
+      await this.provisionNewUserAccess(repos, created.id, input.displayName, input.organizationName);
       if (email) {
         await repos.users.linkIdentity(created.id, 'email', email);
       }
@@ -407,11 +403,8 @@ export class AuthService {
           displayName: identity.name?.trim() || identity.email.split('@')[0] || 'User',
           googleSubject: identity.subject,
         });
-        const role = await repos.roles.findByName(this.deps.defaultRole);
-        if (role) {
-          await repos.roles.assignUser(created.id, role.id);
-        }
-        await repos.organizations.createPersonalWorkspace(
+        await this.provisionNewUserAccess(
+          repos,
           created.id,
           created.displayName,
           identity.organizationName,
@@ -458,6 +451,27 @@ export class AuthService {
       organizationIds: organizations.map((item) => item.id),
       currentOrganizationId: organizations.find((item) => item.isDefault)?.id ?? organizations[0]?.id ?? null,
     };
+  }
+
+  /**
+   * New accounts: role + workspace. In DEMO_MODE, grant procurement_officer and attach the seeded tenant
+   * so Command Center is usable without a manual role promotion.
+   */
+  private async provisionNewUserAccess(
+    repos: Repositories,
+    userId: string,
+    displayName: string,
+    organizationName?: string,
+  ): Promise<void> {
+    const roleName = this.deps.demoMode ? ROLES.PROCUREMENT_OFFICER : this.deps.defaultRole;
+    const role = await repos.roles.findByName(roleName);
+    if (role) {
+      await repos.roles.assignUser(userId, role.id);
+    }
+    await repos.organizations.createPersonalWorkspace(userId, displayName, organizationName);
+    if (this.deps.demoMode && this.deps.demoOrganizationId) {
+      await repos.organizations.attachAsDefaultOrganization(this.deps.demoOrganizationId, userId);
+    }
   }
 
   private async issueSession(

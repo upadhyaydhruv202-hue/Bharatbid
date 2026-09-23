@@ -36,6 +36,7 @@ import { BidAttentionService } from './problem/attention.service';
 import { BidEvaluationService } from './problem/evaluation.service';
 import { BidOperationsService } from './problem/operations.service';
 import { TenderService } from './problem/tender.service';
+import { DEMO_ORGANIZATION_ID } from './problem/organization-scope';
 import { buildVerificationRegistry, listProviderCatalog } from './problem/verification/catalog';
 import { createAiService, isAiEnabled, type AIService } from './integrations/ai';
 import {
@@ -121,6 +122,8 @@ export function createApp(options: CreateAppOptions): AppContext {
           passwordService: new PasswordService(options.config.auth.password),
           tokenService,
           defaultRole: options.config.auth.defaultRole,
+          demoMode: options.config.demoMode,
+          demoOrganizationId: options.config.demoMode ? DEMO_ORGANIZATION_ID : null,
           revocation,
           audit: auditService,
         })
