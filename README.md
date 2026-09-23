@@ -18,6 +18,7 @@
   <a href="#product-at-a-glance">Capabilities</a> ·
   <a href="#how-bharatbid-thinks">Pipeline</a> ·
   <a href="#system-architecture">Architecture</a> ·
+  <a href="#screenshots">Screenshots</a> ·
   <a href="#five-minute-demo">Demo</a> ·
   <a href="#academic-project-documentation">Assignment</a> ·
   <a href="#run-it-locally">Setup</a>
@@ -54,7 +55,7 @@
 
 ## BharatBid in 60 seconds
 
-1. An officer signs in. The shell is labeled **DEMO ENVIRONMENT**.
+1. An officer signs in with **email OTP**, **Google**, or the seeded **password** accounts. The shell is labeled **DEMO ENVIRONMENT**.
 2. **Command Center** shows real operational load: tenders, bids, reviews, evidence gaps, DEMO verification issues.
 3. A **tender** holds ordered requirements and participating submissions.
 4. A **bid** is the working file: documents, DEMO SOURCE verification, cross-checks, coverage, review, and activity.
@@ -209,11 +210,11 @@ Routes: `/bharatbid/intelligence`, `/bharatbid/bids/:id/intelligence`. Detail: [
 
 ### 06 — Governance & reporting
 
-**What it does.** JWT access + rotating refresh; bcrypt passwords; RBAC (`procurement_officer`, `reviewer`, `admin`, plus catalog roles). In-app notifications. Activity timeline (officer vs system). Audit events omit PAN / GSTIN / CIN / Udyam, extracted text, storage keys, and tokens.
+**What it does.** Sign-in via **email OTP**, **Google Identity Services**, or password (seeded SIH accounts). JWT access + rotating refresh; bcrypt passwords; RBAC (`procurement_officer`, `reviewer`, `admin`, plus catalog roles). Organization membership scopes what an officer can open. In-app notifications. Activity timeline (officer vs system). Audit events omit PAN / GSTIN / CIN / Udyam, extracted text, storage keys, and tokens.
 
-**Why it matters.** A later reader can see *what happened* without leaking identifiers in logs and reports.
+**Why it matters.** A later reader can see *what happened* without leaking identifiers in logs and reports. Identity proves who signed in; role and organization decide what they can change.
 
-Routes: `/bharatbid/review`, `/bharatbid/activity`, `/bharatbid/notifications`. Security: [`docs/BHARATBID_SECURITY.md`](docs/BHARATBID_SECURITY.md).
+Routes: `/login`, `/signup`, `/bharatbid/review`, `/bharatbid/activity`, `/bharatbid/notifications`. Security: [`docs/BHARATBID_SECURITY.md`](docs/BHARATBID_SECURITY.md) · auth setup: [`docs/AUTHENTICATION_SETUP.md`](docs/AUTHENTICATION_SETUP.md).
 
 ---
 
@@ -241,7 +242,7 @@ flowchart TB
 ## End-to-end officer workflow
 
 ```text
-01 Sign in
+01 Sign in (email OTP · Google · or seeded password)
       ↓
 02 Command Center — what needs attention
       ↓
@@ -270,7 +271,9 @@ Timed script: [`docs/BHARATBID_DEMO_GUIDE.md`](docs/BHARATBID_DEMO_GUIDE.md).
 
 ## User roles
 
-Seeded SIH accounts all use password `demo-password`.
+**Fastest judge path:** `demo.officer@example.com` / `demo-password` (password mode on `/login`).
+
+Primary product sign-in is **official email OTP** or **Continue with Google**. Password remains available for seeded SIH accounts and local demos when OTP/Google are not configured. Seeded accounts use password `demo-password`.
 
 | Role | Responsibility | In this product |
 | --- | --- | --- |
@@ -282,6 +285,8 @@ The RBAC catalog also includes infrastructure roles used by tests (`manager`, `s
 
 Permissions used by BharatBid routes: `tenders.read` / `tenders.write`, `bidders.read` / `bidders.write`, `bids.read` / `bids.write`, plus `notifications.read` for the inbox.
 
+With `DEMO_MODE=true`, new Google / email-OTP signups can be provisioned into the demo organization as a procurement officer so Command Center is reachable without a separate admin step. Production should keep `DEMO_MODE=false` and assign roles deliberately.
+
 ---
 
 ## Project maturity
@@ -291,7 +296,7 @@ Permissions used by BharatBid routes: `tenders.read` / `tenders.write`, `bidders
 | Frontend workspaces | Implemented | `frontend/src/pages/bharatbid/` |
 | Backend domain API | Implemented | `backend/src/routes/bharatbid.routes.ts` |
 | Database & migrations | Implemented | `database/prisma/` |
-| Authentication / RBAC | Implemented | JWT + catalog in PostgreSQL |
+| Authentication / RBAC | Implemented | Email OTP, Google GIS, password; JWT + catalog in PostgreSQL |
 | DEMO verification adapters | Implemented (simulated) | `backend/src/problem/verification/` |
 | Evaluation & PDF reports | Implemented | Comparison workspace + `report.ts` |
 | Testing | Implemented | Vitest unit, HTTP/integration, API e2e, GitHub Actions |
@@ -307,7 +312,7 @@ Permissions used by BharatBid routes: `tenders.read` / `tenders.write`, `bidders
 flowchart TB
   UI[React / Vite UI]
   API[Express /api/v1]
-  AUTH[JWT + RBAC]
+  AUTH[JWT · email OTP · Google · RBAC]
   DOM[BharatBid domain services]
   PG[(PostgreSQL / Prisma)]
   ST[Object storage]
@@ -400,7 +405,7 @@ The Compose project name remains `hackathon-starter-kit` so existing Docker volu
 
 | Minute | Do this | Say this |
 | --- | --- | --- |
-| 0 | `/login` | DEMO / SYNTHETIC. Officers decide. |
+| 0 | `/login` → password or show email OTP / Google | DEMO / SYNTHETIC. Officers decide. Identity ≠ award. |
 | 1 | Command Center `/bharatbid` | KPIs are real records, not a second ranking engine. |
 | 2 | Open `GEM/2026/B/CPCL/001` | Requirements and participation live on one tender. |
 | 3 | Open **Bayfront** bid → Documents + Verification | DEMO SOURCE. Field comparison is the evidence. |
@@ -415,11 +420,27 @@ Full 15-minute script: [`docs/BHARATBID_DEMO_GUIDE.md`](docs/BHARATBID_DEMO_GUID
 
 ## Screenshots
 
-This repository does **not** currently ship screenshot assets (no `png`/`jpg` files in the tree).
+Current product UI (DEMO / SYNTHETIC shell). Open the app at http://127.0.0.1:5173/ for the live workspace.
 
-**To add later** (store under `docs/assets/` and link here): Command Center, tender file, bid Documents, Verification evidence drawer, Cross-checks, Requirements matrix, Officer Review Priority, comparative evaluation, PDF first page, Activity timeline, login card showing DEMO / SYNTHETIC.
+<p align="center">
+  <img src="docs/assets/ui-command-center.png" alt="BharatBid Command Center — officer workspace with DEMO / SYNTHETIC labelling" width="900">
+</p>
 
-Until then, run the app: http://127.0.0.1:5173/
+<p align="center"><sub>Command Center — operational KPIs, attention, and DEMO SOURCE verification health from live records</sub></p>
+
+<p align="center">
+  <img src="docs/assets/ui-login.png" alt="BharatBid sign-in — email OTP and Google" width="720">
+</p>
+
+<p align="center"><sub>Sign in — official email one-time code or Google; password available for seeded SIH accounts</sub></p>
+
+<p align="center">
+  <img src="docs/assets/ui-signup.png" alt="BharatBid create account — email verification and Google" width="720">
+</p>
+
+<p align="center"><sub>Create account — email OTP or Google; organization membership still gates what you can open</sub></p>
+
+Additional deep screens (tender file, verification drawer, comparison matrix, PDF) are best shown live from the seeded demo. Officer briefing: [`docs/BHARATBID_OFFICER_BRIEFING.md`](docs/BHARATBID_OFFICER_BRIEFING.md).
 
 ---
 
@@ -427,15 +448,15 @@ Until then, run the app: http://127.0.0.1:5173/
 
 ### Implemented
 
-Tender / bidder / bid workflows, documents, DEMO verification and cross-checks, requirement intelligence, officer review, Officer Review Priority, comparative evaluation, PDF reports, Command Center, notifications, activity, JWT + RBAC, audit redaction, Docker Compose, CI.
+Tender / bidder / bid workflows, documents, DEMO verification and cross-checks, requirement intelligence, officer review, Officer Review Priority, comparative evaluation, PDF reports, Command Center, notifications, activity, email OTP + Google + password auth, JWT + RBAC, organization scope, audit redaction, Docker Compose, CI.
 
 ### Demo / simulated
 
-All government-source adapters. Seed tenders and bids (including `GEM/2026/B/CPCL/001`, Bayfront, Delta). DigiLocker-style authenticity marker. GST return *attribute* on DEMO GST. Email and SMS providers default **off** (`EMAIL_ENABLED=false`, `SMS_ENABLED=false`).
+All government-source adapters. Seed tenders and bids (including `GEM/2026/B/CPCL/001`, Bayfront, Delta). DigiLocker-style authenticity marker. GST return *attribute* on DEMO GST. Email and SMS providers default **off** (`EMAIL_ENABLED=false`, `SMS_ENABLED=false`) until you configure SMTP / MSG91 for real OTP delivery. Google sign-in needs `GOOGLE_CLIENT_ID` (and matching GIS client) — see [`.env.example`](.env.example).
 
 ### Not in this submission
 
-Live GSTN / MCA21 / Udyam / GeM / PAN / IT / EPFO / ESIC / NSIC / DPIIT / BIS / DigiLocker. Automatic award or ranking. Fraud detection. Government certification of this software. Production-grade JWT issuers (`.env.example` uses change-me secrets).
+Live GSTN / MCA21 / Udyam / GeM / PAN / IT / EPFO / ESIC / NSIC / DPIIT / BIS / DigiLocker. Automatic award or ranking. Fraud detection. Government certification of this software. Production-grade JWT issuers (`.env.example` uses change-me secrets). Mobile SMS OTP as a primary login path (email OTP + Google are the product auth surfaces).
 
 Future items that were **explicitly not built**: [`docs/BHARATBID_FUTURE_SCOPE.md`](docs/BHARATBID_FUTURE_SCOPE.md).
 
@@ -655,11 +676,12 @@ Schema: `database/prisma/schema.prisma`. Guide: [`docs/database.md`](docs/databa
 
 ### Security
 
-- JWT access + rotating refresh; bcrypt hashes
+- Email OTP, Google ID-token verify, and password login; JWT access + rotating refresh; bcrypt hashes
 - RBAC reloaded from PostgreSQL on authenticate (not trusted from a JWT role claim alone)
+- Organization-scoped tender / bid access
 - Authenticated document download; no public storage URLs in the UI
 - SSRF checks on user-controlled URLs
-- Rate limits, CORS allowlist, secure headers, body limits
+- Rate limits (including OTP), CORS allowlist, secure headers, body limits
 - Search does not query PAN/GSTIN in the SIH UI
 - Frontend cannot set officer identity or scores
 
@@ -684,9 +706,11 @@ AI_PROVIDER=gemini
 GEMINI_API_KEY=
 EMAIL_ENABLED=false
 SMS_ENABLED=false
+GOOGLE_CLIENT_ID=
+OTP_HASH_SECRET=
 ```
 
-Full catalog: [`docs/configuration.md`](docs/configuration.md).
+Auth wiring: [`docs/AUTHENTICATION_SETUP.md`](docs/AUTHENTICATION_SETUP.md). Full catalog: [`docs/configuration.md`](docs/configuration.md).
 
 </details>
 
