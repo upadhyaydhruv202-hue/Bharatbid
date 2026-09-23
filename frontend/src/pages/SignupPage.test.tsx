@@ -49,7 +49,7 @@ describe('SignupPage', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Register your identity')).toBeInTheDocument();
+    expect(await screen.findByText('Create your account')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Asha Rao' } });
     fireEvent.change(screen.getByLabelText('Official email'), { target: { value: 'officer@example.com' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send verification code' }));

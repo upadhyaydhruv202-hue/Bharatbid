@@ -66,7 +66,7 @@ export function LoginForm({
           {message}
         </p>
       ) : null}
-      <Button type="submit" loading={loading}>
+      <Button type="submit" className="w-full" size="lg" loading={loading}>
         {submitLabel}
       </Button>
     </form>

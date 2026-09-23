@@ -51,7 +51,8 @@ export function GoogleSignInButton({
         theme: 'outline',
         size: 'large',
         text: 'continue_with',
-        width: 320,
+        shape: 'rectangular',
+        width: Math.max(320, hostRef.current.clientWidth || 320),
         locale: 'en',
       });
     }
@@ -74,11 +75,11 @@ export function GoogleSignInButton({
 
   if (!clientId) {
     return (
-      <p className="rounded-md border border-edge bg-surface-muted px-3 py-2 text-sm text-foreground-muted" role="status">
-        CONFIGURATION REQUIRED — Google sign-in is not configured.
+      <p className="bb-auth-alert" role="status">
+        Google sign-in is not configured on this environment.
       </p>
     );
   }
 
-  return <div ref={hostRef} className="flex justify-center" />;
+  return <div ref={hostRef} className="flex w-full justify-stretch [&>div]:w-full" />;
 }

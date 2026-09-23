@@ -47,7 +47,7 @@ describe('LoginPage', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Sign in to your organization')).toBeInTheDocument();
+    expect(await screen.findByText('Sign in')).toBeInTheDocument();
     expect(screen.queryByText('demo.officer@example.com')).not.toBeInTheDocument();
     expect(screen.queryByText('demo-password')).not.toBeInTheDocument();
   });
