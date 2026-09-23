@@ -1,7 +1,7 @@
 import type { BidDocument, BidSubmission, BidVerification, Bidder, Tender, TenderRequirement } from '@prisma/client';
 
 import { identifierPresence, isProfileComplete, maskPan } from './identifiers';
-import type { TenderStatusAction } from './transitions';
+import { effectiveTenderStatus, type TenderStatusAction } from './transitions';
 import {
   BID_DOCUMENT_TYPE_CATEGORY,
   BID_DOCUMENT_TYPE_LABELS,
@@ -12,9 +12,10 @@ import {
   type TenderStatusName,
 } from './types';
 import {
-  DEMO_SOURCE_ADVISORY,
+  advisoryForSourceMode,
   VERIFICATION_IDENTIFIER_LABELS,
   type VerificationIdentifierTypeName,
+  type VerificationSourceModeName,
 } from './verification/types';
 
 export interface TenderListItem {
@@ -42,6 +43,12 @@ export interface TenderRequirementView {
   mandatory: boolean;
   active: boolean;
   sortOrder: number;
+  version: number;
+  groupId: string;
+  previousVersionId: string | null;
+  changeReason: string | null;
+  createdById: string | null;
+  effectiveAt: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -250,6 +257,13 @@ export interface VerificationListItem {
   status: string;
   requestedAt: string;
   completedAt: string | null;
+  verifiedAt: string | null;
+  retrievedAt: string | null;
+  cacheAgeSeconds: number | null;
+  expiresAt: string | null;
+  servedFromCache: boolean;
+  freshness: 'live' | 'cached' | 'sandbox' | 'demo' | 'manual';
+  provider: string;
 }
 
 export interface VerificationDetail extends VerificationListItem {
@@ -286,7 +300,7 @@ export function toTenderListItem(
     organizationName: tender.organizationName,
     departmentName: tender.departmentName,
     category: tender.category,
-    status: tender.status,
+    status: effectiveTenderStatus(tender),
     issueDate: iso(tender.issueDate),
     closingDate: iso(tender.closingDate),
     bidCount: tender._count?.bids ?? 0,
@@ -297,6 +311,14 @@ export function toTenderListItem(
 }
 
 export function toTenderRequirementView(requirement: TenderRequirement): TenderRequirementView {
+  const row = requirement as TenderRequirement & {
+    version?: number;
+    groupId?: string;
+    previousVersionId?: string | null;
+    changeReason?: string | null;
+    createdById?: string | null;
+    effectiveAt?: Date;
+  };
   return {
     id: requirement.id,
     tenderId: requirement.tenderId,
@@ -306,6 +328,12 @@ export function toTenderRequirementView(requirement: TenderRequirement): TenderR
     mandatory: requirement.mandatory,
     active: requirement.active,
     sortOrder: requirement.sortOrder,
+    version: row.version ?? 1,
+    groupId: row.groupId ?? requirement.id,
+    previousVersionId: row.previousVersionId ?? null,
+    changeReason: row.changeReason ?? null,
+    createdById: row.createdById ?? null,
+    effectiveAt: iso(row.effectiveAt ?? requirement.createdAt),
     createdAt: iso(requirement.createdAt),
     updatedAt: iso(requirement.updatedAt),
   };
@@ -391,6 +419,10 @@ export function activityTitle(action: string, metadata: unknown): string {
       return 'deactivated a requirement';
     case 'tender.requirement.reordered':
       return 'reordered requirements';
+    case 'tender.requirement.amended':
+      return meta.changeReason
+        ? `amended a published requirement (${String(meta.changeReason)})`
+        : 'amended a published requirement';
     case 'bidder.created':
       return 'created this bidder profile';
     case 'bidder.updated':
@@ -615,7 +647,9 @@ export function toBidDetail(
     ...toBidListItem(bid),
     tenderCategory: bid.tender && 'category' in bid.tender ? bid.tender.category : null,
     tenderClosingDate: bid.tender && 'closingDate' in bid.tender ? iso(bid.tender.closingDate) : null,
-    tenderStatus: bid.tender && 'status' in bid.tender ? bid.tender.status : null,
+    tenderStatus: bid.tender
+      ? effectiveTenderStatus({ status: bid.tender.status, closingDate: bid.tender.closingDate })
+      : null,
     bidderTradeName: bid.bidder && 'tradeName' in bid.bidder ? bid.bidder.tradeName : null,
     bidderCity: bid.bidder && 'city' in bid.bidder ? bid.bidder.city : null,
     bidderState: bid.bidder && 'state' in bid.bidder ? bid.bidder.state : null,
@@ -693,14 +727,59 @@ export function toBidDocumentDetail(
   };
 }
 
+export function verificationFreshness(input: {
+  sourceMode: string;
+  requestedAt: Date;
+  completedAt: Date | null;
+  servedFromCache: boolean;
+  cacheTtlMs: number;
+  now?: Date;
+}): Pick<
+  VerificationListItem,
+  'verifiedAt' | 'retrievedAt' | 'cacheAgeSeconds' | 'expiresAt' | 'servedFromCache' | 'freshness'
+> {
+  const now = input.now ?? new Date();
+  const retrieved = input.completedAt ?? input.requestedAt;
+  const cacheAgeSeconds = Math.max(0, Math.floor((now.getTime() - retrieved.getTime()) / 1000));
+  const expiresAt = new Date(retrieved.getTime() + input.cacheTtlMs);
+  const mode = input.sourceMode.toLowerCase();
+  let freshness: VerificationListItem['freshness'] = 'demo';
+  if (mode === 'manual') {
+    freshness = 'manual';
+  } else if (mode === 'sandbox') {
+    freshness = 'sandbox';
+  } else if (mode === 'live') {
+    freshness = input.servedFromCache ? 'cached' : 'live';
+  } else {
+    freshness = 'demo';
+  }
+  return {
+    verifiedAt: input.completedAt ? iso(input.completedAt) : null,
+    retrievedAt: iso(retrieved),
+    cacheAgeSeconds,
+    expiresAt: iso(expiresAt),
+    servedFromCache: input.servedFromCache,
+    freshness,
+  };
+}
+
 export function toVerificationListItem(
   row: BidVerification & {
     document?: { id: string; originalFilename: string; documentType: string } | null;
     requestedBy?: { id: string; displayName: string } | null;
   },
+  options: { servedFromCache?: boolean; cacheTtlMs?: number; now?: Date } = {},
 ): VerificationListItem {
   const identifierType = row.identifierType as VerificationIdentifierTypeName;
   const documentType = row.document?.documentType as BidDocumentTypeName | undefined;
+  const freshness = verificationFreshness({
+    sourceMode: row.sourceMode,
+    requestedAt: row.requestedAt,
+    completedAt: row.completedAt,
+    servedFromCache: Boolean(options.servedFromCache),
+    cacheTtlMs: options.cacheTtlMs ?? 60_000,
+    now: options.now,
+  });
   return {
     id: row.id,
     bidSubmissionId: row.bidSubmissionId,
@@ -721,6 +800,8 @@ export function toVerificationListItem(
     status: row.status,
     requestedAt: iso(row.requestedAt),
     completedAt: row.completedAt ? iso(row.completedAt) : null,
+    provider: row.sourceDisplayName,
+    ...freshness,
   };
 }
 
@@ -730,15 +811,16 @@ export function toVerificationDetail(
     requestedBy?: { id: string; displayName: string } | null;
   },
   history: BidVerification[] = [],
+  options: { servedFromCache?: boolean; cacheTtlMs?: number; now?: Date } = {},
 ): VerificationDetail {
   return {
-    ...toVerificationListItem(row),
+    ...toVerificationListItem(row, options),
     explanation: row.explanation,
     fieldComparisons: row.fieldComparisons,
     sourceSnapshot: row.sourceSnapshot,
     errorCode: row.errorCode,
     errorMessage: row.errorMessage,
-    advisory: DEMO_SOURCE_ADVISORY,
+    advisory: advisoryForSourceMode(row.sourceMode as VerificationSourceModeName),
     requestedByName: row.requestedBy?.displayName ?? null,
     history: history.map((item) => ({
       id: item.id,

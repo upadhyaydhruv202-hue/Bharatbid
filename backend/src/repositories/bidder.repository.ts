@@ -1,12 +1,18 @@
 import type { Prisma, Bidder, BidSubmission, Tender } from '@prisma/client';
 
 import { mapPrismaError } from '../lib/prisma-error';
+import {
+  assertOrganizationAccess,
+  getOrganizationScope,
+  tenantOrganizationWhere,
+} from '../problem/organization-scope';
 import { parsePagination, toPaginatedResult, type PaginatedResult } from './query';
 import type { DbClient } from './types';
 import { isValidGstin, isValidPan, normalizeIdentifier } from '../problem/identifiers';
 import type { BidderListQuery } from '../problem/schemas';
 
 export interface CreateBidderRecord {
+  organizationId: string;
   legalName: string;
   tradeName?: string | null;
   pan?: string | null;
@@ -53,7 +59,16 @@ export class BidderRepository {
 
   async findById(id: string): Promise<Bidder | null> {
     try {
-      return await this.db.bidder.findUnique({ where: { id } });
+      const bidder = await this.db.bidder.findUnique({ where: { id } });
+      if (!bidder) {
+        return null;
+      }
+      try {
+        assertOrganizationAccess(bidder.organizationId, getOrganizationScope());
+      } catch {
+        return null;
+      }
+      return bidder;
     } catch (error) {
       mapPrismaError(error);
     }
@@ -61,7 +76,7 @@ export class BidderRepository {
 
   async findByIdWithBids(id: string): Promise<BidderDetailRecord | null> {
     try {
-      return await this.db.bidder.findUnique({
+      const bidder = await this.db.bidder.findUnique({
         where: { id },
         include: {
           bids: {
@@ -72,6 +87,15 @@ export class BidderRepository {
           },
         },
       });
+      if (!bidder) {
+        return null;
+      }
+      try {
+        assertOrganizationAccess(bidder.organizationId, getOrganizationScope());
+      } catch {
+        return null;
+      }
+      return bidder;
     } catch (error) {
       mapPrismaError(error);
     }
@@ -80,7 +104,7 @@ export class BidderRepository {
   async list(query: BidderListQuery): Promise<PaginatedResult<BidderListRecord>> {
     const pagination = parsePagination(query);
     const search = query.q ?? query.search;
-    const where: Prisma.BidderWhereInput = {};
+    const where: Prisma.BidderWhereInput = { ...tenantOrganizationWhere() };
     const and: Prisma.BidderWhereInput[] = [];
 
     if (query.state) {
@@ -156,7 +180,7 @@ export class BidderRepository {
 
   async countAll(): Promise<number> {
     try {
-      return await this.db.bidder.count();
+      return await this.db.bidder.count({ where: tenantOrganizationWhere() ?? {} });
     } catch (error) {
       mapPrismaError(error);
     }
@@ -166,6 +190,7 @@ export class BidderRepository {
     try {
       return await this.db.bidder.findMany({
         where: {
+          ...tenantOrganizationWhere(),
           OR: [
             { legalName: { contains: q, mode: 'insensitive' } },
             { tradeName: { contains: q, mode: 'insensitive' } },

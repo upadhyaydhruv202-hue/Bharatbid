@@ -4,11 +4,11 @@ import type { JobQueue } from '../../jobs/queue';
 import { IdempotencyStore } from '../../lib/idempotency';
 import { MemoryKvStore } from '../../lib/kv';
 import { parseWithSchema } from '../../schemas/parse';
-import { isDemoMode, shouldMockExternalIntegrations } from '../../features';
 import type { AppConfig } from '../../types/config';
 import { sendSmsInputSchema, smsSendJobPayloadSchema } from './sms.schemas';
 import { SMS_SEND_JOB, type SendSmsInput, type SentSms, type SmsProvider } from './sms.types';
 import { createHttpSmsProvider } from './providers/http.provider';
+import { createMsg91SmsProvider, UnconfiguredMsg91SmsProvider } from './providers/msg91.provider';
 import { MockSmsProvider } from './providers/mock.provider';
 
 export interface SmsServiceOptions {
@@ -20,7 +20,7 @@ export interface SmsServiceOptions {
 }
 
 export class SmsService {
-  readonly providerName: 'mock' | 'http';
+  readonly providerName: 'mock' | 'http' | 'msg91';
   private readonly provider: SmsProvider;
   private readonly jobs: JobQueue | null;
   private readonly enabled: boolean;
@@ -30,7 +30,7 @@ export class SmsService {
     this.provider = options.provider ?? createSmsProvider(options.config, options.fetchImpl);
     this.providerName = this.provider.name;
     this.jobs = options.jobs ?? null;
-    this.enabled = options.config.sms.enabled || isDemoMode(options.config);
+    this.enabled = options.config.sms.enabled || options.config.auth.demoAuth;
     this.idempotency = options.idempotency ?? new IdempotencyStore(new MemoryKvStore());
   }
 
@@ -104,14 +104,22 @@ export function createSmsService(options: SmsServiceOptions): SmsService {
 }
 
 export function createSmsProvider(config: AppConfig, fetchImpl?: typeof fetch): SmsProvider {
-  if (shouldMockExternalIntegrations(config) || !config.sms.enabled || config.sms.provider === 'mock') {
+  if (config.auth.demoAuth) {
     return new MockSmsProvider();
   }
 
-  return createHttpSmsProvider(config, fetchImpl);
+  if (config.sms.provider === 'msg91') {
+    return createMsg91SmsProvider(config, fetchImpl);
+  }
+
+  if (config.sms.provider === 'http') {
+    return createHttpSmsProvider(config, fetchImpl);
+  }
+
+  return new UnconfiguredMsg91SmsProvider();
 }
 
-function skippedSms(input: SendSmsInput, provider: 'mock' | 'http'): SentSms {
+function skippedSms(input: SendSmsInput, provider: 'mock' | 'http' | 'msg91'): SentSms {
   return {
     id: input.idempotencyKey ?? 'duplicate',
     to: input.to,

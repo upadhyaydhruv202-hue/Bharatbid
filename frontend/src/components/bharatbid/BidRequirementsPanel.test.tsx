@@ -142,7 +142,7 @@ describe('BidRequirementsPanel', () => {
     expect(await screen.findByRole('heading', { name: 'Requirement evidence' })).toBeInTheDocument();
     expect(screen.getByText('DEMO_GST_Certificate.txt')).toBeInTheDocument();
     expect(screen.getAllByText(/matched the selected source record/i).length).toBeGreaterThan(0);
-    expect(screen.getByText('DEMO SOURCE')).toBeInTheDocument();
+    expect(screen.getByText('DEMO — SYNTHETIC DATA')).toBeInTheDocument();
   });
 
   it('shows evidence missing without labelling FAIL', async () => {

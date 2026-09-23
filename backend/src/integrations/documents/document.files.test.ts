@@ -39,9 +39,9 @@ describe('document file validation', () => {
     expect(validateDocumentFile(upload({ originalname: 'scan.png', mimetype: 'image/png', buffer: PNG })).mimeType).toBe(
       'image/png',
     );
-    expect(
-      validateDocumentFile(upload({ originalname: 'scan.jpg', mimetype: 'image/jpeg', buffer: JPEG })).extension,
-    ).toBe('jpg');
+    const jpeg = validateDocumentFile(upload({ originalname: 'scan.jpg', mimetype: 'image/jpeg', buffer: JPEG }));
+    expect(jpeg.extension).toBe('jpg');
+    expect(jpeg.mimeType).toBe('image/jpeg');
     const pdf = validateDocumentFile(upload({ originalname: 'invoice.pdf', mimetype: 'application/pdf', buffer: PDF }));
     expect(extractDocumentText(pdf).text).toMatch(/Invoice 42/);
   });

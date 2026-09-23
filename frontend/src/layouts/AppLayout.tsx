@@ -8,24 +8,31 @@ import { TopbarSearch } from './TopbarSearch';
 
 const NAV_GROUPS = [
   {
-    label: 'Overview',
+    label: 'Command Center',
     items: [{ to: '/bharatbid', label: 'Command Center', end: true as const }],
   },
   {
     label: 'Procurement',
     items: [
       { to: '/bharatbid/tenders', label: 'Tenders' },
-      { to: '/bharatbid/bidders', label: 'Bidders' },
       { to: '/bharatbid/bids', label: 'Bids' },
+      { to: '/bharatbid/bidders', label: 'Bidders' },
     ],
+  },
+  {
+    label: 'Compliance',
+    items: [{ to: '/bharatbid/intelligence', label: 'Attention' }],
   },
   {
     label: 'Review',
     items: [
-      { to: '/bharatbid/review', label: 'Review' },
-      { to: '/bharatbid/intelligence', label: 'Attention' },
+      { to: '/bharatbid/review', label: 'Reviews' },
       { to: '/bharatbid/evaluation', label: 'Evaluation' },
     ],
+  },
+  {
+    label: 'Reports',
+    items: [{ to: '/bharatbid/evaluation', label: 'Reports' }],
   },
   {
     label: 'Governance',
@@ -46,7 +53,7 @@ export function AppLayout() {
           to={isAuthenticated ? '/bharatbid' : '/login'}
           className="block rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
         >
-          <span className="block text-sm font-semibold tracking-tight">BharatBid</span>
+          <span className="block text-sm font-semibold tracking-tight">BharatBid AI</span>
           <span className="mt-0.5 block text-[10px] font-normal leading-4 text-foreground-muted">
             Procurement Intelligence &amp; Evidence-Based Bid Evaluation
           </span>
@@ -72,7 +79,15 @@ export function AppLayout() {
       sidebarFooter={
         <div className="space-y-1 px-1">
           {isAuthenticated && user ? (
-            <p className="text-[11px] font-medium text-foreground">{roleLabel(user)}</p>
+            <>
+              <p className="text-[11px] font-medium text-foreground">{roleLabel(user)}</p>
+              {user.organizations?.find((item) => item.isDefault)?.name || user.organizations?.[0]?.name ? (
+                <p className="text-[10px] text-foreground-muted">
+                  Organization:{' '}
+                  {user.organizations.find((item) => item.isDefault)?.name ?? user.organizations[0]?.name}
+                </p>
+              ) : null}
+            </>
           ) : null}
           <p className="text-[10px] font-semibold uppercase tracking-wider text-warning">DEMO / SYNTHETIC</p>
           <p className="text-[10px] leading-4 text-foreground-muted">
@@ -94,7 +109,10 @@ export function AppLayout() {
             ))}
           </>
         ) : (
-          <SidebarNavLink to="/login">Sign in</SidebarNavLink>
+          <>
+            <SidebarNavLink to="/login">Sign in</SidebarNavLink>
+            <SidebarNavLink to="/signup">Create account</SidebarNavLink>
+          </>
         )
       }
     >

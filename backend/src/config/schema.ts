@@ -69,6 +69,14 @@ export const envSchema = z.object({
   AUTH_LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(5),
   AUTH_LOGIN_IP_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(20),
   AUTH_LOGIN_RATE_LIMIT_WINDOW: z.string().min(1).default('15m'),
+  AUTH_DEMO_MODE: booleanEnv,
+  SMTP_FROM_NAME: optionalString,
+  MSG91_AUTH_KEY: optionalString,
+  MSG91_TEMPLATE_ID: optionalString,
+  MSG91_WIDGET_ID: optionalString,
+  GOOGLE_CLIENT_ID: optionalString,
+  GOOGLE_CLIENT_SECRET: optionalString,
+  GOOGLE_REDIRECT_URI: optionalString,
 
   AI_ENABLED: booleanEnv,
   AI_PROVIDER: z.preprocess(
@@ -103,7 +111,7 @@ export const envSchema = z.object({
   BREVO_API_KEY: optionalString,
 
   SMS_ENABLED: booleanEnv,
-  SMS_PROVIDER: z.enum(['mock', 'http']).default('mock'),
+  SMS_PROVIDER: z.enum(['mock', 'http', 'msg91']).default('mock'),
   SMS_API_KEY: optionalString,
   SMS_FROM: optionalString,
   SMS_HTTP_URL: optionalString,
@@ -165,7 +173,7 @@ export const envSchema = z.object({
   FEATURE_NOTIFICATIONS: booleanEnv,
   OTP_PROVIDER: z.enum(['auto', 'mock']).default('auto'),
   OTP_DIGITS: z.coerce.number().int().min(4).max(8).default(6),
-  OTP_TTL: z.string().min(1).default('10m'),
+  OTP_TTL: z.string().min(1).default('5m'),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
   OTP_RESEND_COOLDOWN: z.string().min(1).default('60s'),
   OTP_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(5),
@@ -181,6 +189,23 @@ export const envSchema = z.object({
   ALLOW_DEMO_IN_PRODUCTION: booleanEnv,
   JOBS_PROCESS: booleanEnv,
   STORAGE_SIGNING_SECRET: optionalString,
+
+  VERIFICATION_TIMEOUT_MS: z.coerce.number().int().min(500).max(60_000).default(8_000),
+  VERIFICATION_CACHE_TTL_MS: z.coerce.number().int().min(0).max(3_600_000).default(60_000),
+  GST_API_BASE_URL: optionalString,
+  GST_CLIENT_ID: optionalString,
+  GST_CLIENT_SECRET: optionalString,
+  GST_PRODUCT_INSTANCE_ID: optionalString,
+  GST_API_PATH: optionalString,
+  GST_API_METHOD: z.enum(['GET', 'POST']).optional(),
+  GST_API_MODE: z.enum(['sandbox', 'live']).default('sandbox'),
+  PAN_API_BASE_URL: optionalString,
+  PAN_CLIENT_ID: optionalString,
+  PAN_CLIENT_SECRET: optionalString,
+  PAN_API_PATH: optionalString,
+  PAN_API_METHOD: z.enum(['GET', 'POST']).optional(),
+  PAN_API_MODE: z.enum(['sandbox', 'live']).default('sandbox'),
+  OCR_ENABLED: booleanEnv,
 });
 
 export type EnvInput = z.input<typeof envSchema>;

@@ -29,6 +29,7 @@ import {
   createTenderBodySchema,
   createTenderRequirementBodySchema,
   createVerificationBodySchema,
+  amendTenderRequirementBodySchema,
   createCrossVerificationBodySchema,
   createEvaluationBodySchema,
   createEvaluationDecisionBodySchema,
@@ -174,6 +175,14 @@ export class BharatBidController {
     const params = parseParams(tenderIdParamsSchema, req.params);
     const body = parseBody(createTenderRequirementBodySchema, req.body);
     const requirement = await this.tenderService().createRequirement(params.id, body, user.id);
+    return sendSuccess(res, { requirement }, 201);
+  });
+
+  amendRequirement = asyncHandler(async (req: Request, res: Response) => {
+    const user = requireUser(req);
+    const params = parseParams(tenderRequirementParamsSchema, req.params);
+    const body = parseBody(amendTenderRequirementBodySchema, req.body);
+    const requirement = await this.tenderService().amendRequirement(params.tenderId, params.id, body, user.id);
     return sendSuccess(res, { requirement }, 201);
   });
 
@@ -439,7 +448,10 @@ export class BharatBidController {
   });
 
   listVerificationSources = asyncHandler(async (_req: Request, res: Response) => {
-    return sendSuccess(res, { items: this.verificationService().listSources() });
+    return sendSuccess(res, {
+      items: this.verificationService().listSources(),
+      catalog: this.verificationService().listHealth(),
+    });
   });
 
   listBidVerifications = asyncHandler(async (req: Request, res: Response) => {

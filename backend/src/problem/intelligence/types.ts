@@ -85,8 +85,11 @@ export function sourceBasis(
   left: VerificationSourceModeName,
   right: VerificationSourceModeName,
 ): CrossSourceBasisName {
+  if (left === 'demo' && right === 'demo') {
+    return 'demo';
+  }
   if (left === right) {
-    return left;
+    return 'external';
   }
   return 'mixed';
 }

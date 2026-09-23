@@ -10,6 +10,9 @@ export interface AuthenticatedUser {
   role: string;
   roles: string[];
   permissions: string[];
+  organizationIds?: string[];
+  currentOrganizationId?: string | null;
+  organizations?: Array<{ id: string; name: string; slug: string; isDefault: boolean }>;
 }
 
 export interface TokenPair {
@@ -80,7 +83,12 @@ export function toAuthenticatedUser(input: {
   status: UserStatus;
   roles: string[];
   permissions?: string[];
+  organizationIds?: string[];
+  currentOrganizationId?: string | null;
+  organizations?: Array<{ id: string; name: string; slug: string; isDefault: boolean }>;
 }): AuthenticatedUser {
+  const organizations = input.organizations ?? [];
+  const organizationIds = input.organizationIds ?? organizations.map((item) => item.id);
   return {
     id: input.id,
     email: input.email,
@@ -89,5 +97,8 @@ export function toAuthenticatedUser(input: {
     roles: input.roles,
     permissions: input.permissions ?? [],
     role: primaryRole(input.roles),
+    organizationIds,
+    currentOrganizationId: input.currentOrganizationId ?? organizations.find((item) => item.isDefault)?.id ?? organizationIds[0] ?? null,
+    organizations,
   };
 }

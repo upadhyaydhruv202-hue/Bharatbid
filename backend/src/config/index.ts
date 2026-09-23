@@ -122,9 +122,21 @@ function collectProductionSecretErrors(env: ParsedEnv): string[] {
       if (!env.SMS_API_KEY)
         missing.push('SMS_API_KEY is required when the HTTP SMS provider is enabled');
     }
+    if (env.SMS_PROVIDER === 'msg91') {
+      if (!env.MSG91_AUTH_KEY)
+        missing.push('MSG91_AUTH_KEY is required when the MSG91 SMS provider is enabled');
+      if (!env.MSG91_TEMPLATE_ID)
+        missing.push('MSG91_TEMPLATE_ID is required when the MSG91 SMS provider is enabled');
+    }
     if (env.SMS_PROVIDER === 'mock' && !bool(env.DEMO_MODE, false)) {
       missing.push('SMS_PROVIDER=mock is only allowed in production when DEMO_MODE=true');
     }
+  }
+
+  if (bool(env.AUTH_DEMO_MODE, false) && !bool(env.ALLOW_DEMO_IN_PRODUCTION, false)) {
+    missing.push(
+      'AUTH_DEMO_MODE is not allowed in production unless ALLOW_DEMO_IN_PRODUCTION=true',
+    );
   }
 
   const s3Enabled = env.STORAGE_PROVIDER === 's3' || bool(env.FEATURE_S3, false);
@@ -237,6 +249,13 @@ export function mapConfig(env: ParsedEnv): AppConfig {
       loginRateLimitMax: env.AUTH_LOGIN_RATE_LIMIT_MAX,
       loginIpRateLimitMax: env.AUTH_LOGIN_IP_RATE_LIMIT_MAX,
       loginRateLimitWindowMs: parseDurationToMs(env.AUTH_LOGIN_RATE_LIMIT_WINDOW),
+      demoAuth:
+        env.AUTH_DEMO_MODE === undefined
+          ? resolveDemoMode(env)
+          : bool(env.AUTH_DEMO_MODE, false),
+      googleClientId: env.GOOGLE_CLIENT_ID,
+      googleClientSecret: env.GOOGLE_CLIENT_SECRET,
+      googleRedirectUri: env.GOOGLE_REDIRECT_URI,
     },
     ai: {
       enabled: bool(env.AI_ENABLED, false) || bool(env.FEATURE_AI, false),
@@ -253,6 +272,7 @@ export function mapConfig(env: ParsedEnv): AppConfig {
       enabled: bool(env.EMAIL_ENABLED, false),
       provider: env.EMAIL_PROVIDER,
       from: env.EMAIL_FROM ?? env.SMTP_FROM,
+      fromName: env.SMTP_FROM_NAME,
       timeoutMs: env.EMAIL_TIMEOUT_MS,
       smtp: {
         host: env.SMTP_HOST,
@@ -275,6 +295,11 @@ export function mapConfig(env: ParsedEnv): AppConfig {
       from: env.SMS_FROM,
       httpUrl: env.SMS_HTTP_URL,
       timeoutMs: env.SMS_TIMEOUT_MS,
+      msg91: {
+        authKey: env.MSG91_AUTH_KEY,
+        templateId: env.MSG91_TEMPLATE_ID,
+        widgetId: env.MSG91_WIDGET_ID,
+      },
     },
     storage: {
       provider: env.STORAGE_PROVIDER,
@@ -330,13 +355,34 @@ export function mapConfig(env: ParsedEnv): AppConfig {
       },
     },
     demoMode: resolveDemoMode(env),
+    verification: {
+      timeoutMs: env.VERIFICATION_TIMEOUT_MS,
+      cacheTtlMs: env.VERIFICATION_CACHE_TTL_MS,
+      gst: {
+        baseUrl: env.GST_API_BASE_URL,
+        clientId: env.GST_CLIENT_ID,
+        clientSecret: env.GST_CLIENT_SECRET,
+        productInstanceId: env.GST_PRODUCT_INSTANCE_ID,
+        pathTemplate: env.GST_API_PATH,
+        method: env.GST_API_METHOD,
+        mode: env.GST_API_MODE,
+      },
+      pan: {
+        baseUrl: env.PAN_API_BASE_URL,
+        clientId: env.PAN_CLIENT_ID,
+        clientSecret: env.PAN_CLIENT_SECRET,
+        pathTemplate: env.PAN_API_PATH,
+        method: env.PAN_API_METHOD,
+        mode: env.PAN_API_MODE,
+      },
+    },
     scheduler: {
       enabled: bool(env.SCHEDULER_ENABLED, false),
       intervalMs: parseDurationToMs(env.SCHEDULER_INTERVAL),
       pollMs: parseDurationToMs(env.SCHEDULER_POLL),
     },
     otp: {
-      enabled: bool(env.FEATURE_OTP, false),
+      enabled: bool(env.FEATURE_OTP, FEATURE_REGISTRY.otp.default),
       provider: env.OTP_PROVIDER,
       digits: env.OTP_DIGITS,
       ttlMs: parseDurationToMs(env.OTP_TTL),

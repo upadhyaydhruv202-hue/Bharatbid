@@ -14,7 +14,19 @@ export function createAuthRouter(options: {
   const router = Router();
   const publicAuth = [options.publicRateLimit, options.authenticationRateLimit];
 
+  router.get('/public-config', options.publicRateLimit, options.controller.publicConfig);
   router.post('/register', ...publicAuth, options.controller.register);
+  router.post('/login', options.loginRateLimit, options.controller.login);
+  router.post('/refresh', ...publicAuth, options.controller.refresh);
+  router.post('/logout', ...publicAuth, options.controller.logout);
+  router.get('/me', options.authenticate, options.controller.me);
+  router.post('/otp/request', options.otpRateLimit, options.controller.requestOtp);
+  router.post('/otp/verify', options.otpRateLimit, options.controller.verifyOtp);
+  router.post('/email/request-otp', options.otpRateLimit, options.controller.requestEmailOtp);
+  router.post('/email/verify-otp', options.otpRateLimit, options.controller.verifyEmailOtp);
+  router.post('/mobile/request-otp', options.otpRateLimit, options.controller.requestMobileOtp);
+  router.post('/mobile/verify-otp', options.otpRateLimit, options.controller.verifyMobileOtp);
+  router.post('/google', options.loginRateLimit, options.controller.google);
   router.post('/login', options.loginRateLimit, options.controller.login);
   router.post('/refresh', ...publicAuth, options.controller.refresh);
   router.post('/logout', ...publicAuth, options.controller.logout);

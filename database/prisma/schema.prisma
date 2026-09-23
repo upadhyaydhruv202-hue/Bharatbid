@@ -53,13 +53,15 @@ enum NotificationDeliveryStatus {
 
 /// Application user. Password hashes must never be exposed to the frontend or API responses.
 model User {
-  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email        String     @unique
-  passwordHash String     @map("password_hash")
-  displayName  String     @map("display_name")
-  status       UserStatus @default(active)
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email          String     @unique
+  passwordHash   String?    @map("password_hash")
+  displayName    String     @map("display_name")
+  phone          String?    @unique
+  googleSubject  String?    @unique @map("google_subject")
+  status         UserStatus @default(active)
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
 
   userRoles               UserRole[]
   notifications           Notification[]
@@ -84,8 +86,60 @@ model User {
   evaluationsRecorded        TenderEvaluation[]      @relation("EvaluationRecordedBy")
   evaluationNotes            EvaluationNote[]
   evaluationDecisions        EvaluationDecision[]
+  organizationMemberships    OrganizationMember[]
+  requirementsCreated        TenderRequirement[]     @relation("RequirementCreatedBy")
+  identities                 UserIdentity[]
 
   @@map("users")
+}
+
+enum UserIdentityType {
+  email
+  mobile
+  google
+}
+
+model UserIdentity {
+  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String           @map("user_id") @db.Uuid
+  type       UserIdentityType
+  identifier String
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([type, identifier])
+  @@index([userId])
+  @@map("user_identities")
+}
+
+/// Tenant workspace. Officers only see tenders/bidders in organizations they belong to.
+model Organization {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug      String   @unique
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members OrganizationMember[]
+  tenders Tender[]
+  bidders Bidder[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  isDefault      Boolean  @default(true) @map("is_default")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, userId])
+  @@index([userId])
+  @@map("organization_members")
 }
 
 /// Hashed refresh tokens. Raw JWTs are never stored. Rotation revokes the previous row.
@@ -383,6 +437,7 @@ enum BidSubmissionStatus {
 /// GeM / CPSE procurement opportunity. Problem-specific; reusable kit models stay unchanged.
 model Tender {
   id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String       @map("organization_id") @db.Uuid
   referenceNumber  String       @unique @map("reference_number")
   title            String
   description      String?
@@ -396,12 +451,14 @@ model Tender {
   createdAt        DateTime     @default(now()) @map("created_at")
   updatedAt        DateTime     @updatedAt @map("updated_at")
 
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   createdBy    User?                @relation("TenderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   requirements TenderRequirement[]
   bids         BidSubmission[]
   reviewItems  BidReviewItem[]
   evaluation   TenderEvaluation?
 
+  @@index([organizationId, status, closingDate])
   @@index([status, closingDate])
   @@index([closingDate])
   @@index([createdAt])
@@ -410,30 +467,41 @@ model Tender {
 }
 
 model TenderRequirement {
-  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenderId        String                 @map("tender_id") @db.Uuid
-  name            String
-  description     String?
-  requirementType TenderRequirementType  @map("requirement_type")
-  mandatory       Boolean                @default(true)
-  active          Boolean                @default(true)
-  sortOrder       Int                    @default(0) @map("sort_order")
-  createdAt       DateTime               @default(now()) @map("created_at")
-  updatedAt       DateTime               @updatedAt @map("updated_at")
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenderId          String                 @map("tender_id") @db.Uuid
+  groupId           String                 @map("group_id") @db.Uuid
+  version           Int                    @default(1)
+  previousVersionId String?                @map("previous_version_id") @db.Uuid
+  changeReason      String?                @map("change_reason")
+  createdById       String?                @map("created_by_id") @db.Uuid
+  effectiveAt       DateTime               @default(now()) @map("effective_at")
+  name              String
+  description       String?
+  requirementType   TenderRequirementType  @map("requirement_type")
+  mandatory         Boolean                @default(true)
+  active            Boolean                @default(true)
+  sortOrder         Int                    @default(0) @map("sort_order")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
 
-  tender    Tender        @relation(fields: [tenderId], references: [id], onDelete: Cascade)
-  documents BidDocument[]
-  reviewItems BidReviewItem[]
+  tender          Tender              @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  createdBy       User?               @relation("RequirementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  previousVersion TenderRequirement?  @relation("RequirementVersions", fields: [previousVersionId], references: [id], onDelete: SetNull)
+  nextVersions    TenderRequirement[] @relation("RequirementVersions")
+  documents       BidDocument[]
+  reviewItems     BidReviewItem[]
 
   @@index([tenderId, sortOrder])
   @@index([tenderId, active])
   @@index([tenderId, mandatory])
+  @@index([tenderId, groupId, version])
   @@map("tender_requirements")
 }
 
 /// Legal entity bidding on tenders. Identifiers are unique when present; empty values are stored as null.
 model Bidder {
   id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId          String   @map("organization_id") @db.Uuid
   legalName               String   @map("legal_name")
   tradeName               String?  @map("trade_name")
   pan                     String?  @unique
@@ -450,11 +518,13 @@ model Bidder {
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   bids BidSubmission[]
   verifications BidVerification[]
   crossVerifications BidCrossVerification[]
   reviewItems BidReviewItem[]
 
+  @@index([organizationId, legalName])
   @@index([legalName])
   @@index([city, state])
   @@map("bidders")
@@ -604,6 +674,9 @@ enum VerificationIdentifierType {
 enum VerificationSourceMode {
   demo
   external
+  sandbox
+  live
+  manual
 }
 
 enum VerificationStatus {
@@ -643,6 +716,8 @@ model BidVerification {
   sourceSnapshot       Json?                        @map("source_snapshot")
   errorCode            String?                      @map("error_code")
   errorMessage         String?                      @map("error_message")
+  providerReference    String?                      @map("provider_reference")
+  requestId            String?                      @map("request_id")
   requestedAt          DateTime                     @default(now()) @map("requested_at")
   completedAt          DateTime?                    @map("completed_at")
   requestedById        String?                      @map("requested_by_id") @db.Uuid

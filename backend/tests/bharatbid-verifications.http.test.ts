@@ -16,6 +16,8 @@ import {
   getTestRepositories,
   resetDatabase,
 } from './helpers/database';
+import { openTenderSchedule } from './helpers/tender-window';
+import { shareDefaultOrganization } from './helpers/organization';
 
 const logger = pino({ level: 'silent' });
 const VALID_PASSWORD = 'correct-horse';
@@ -97,8 +99,7 @@ describeDatabase('BharatBid verification HTTP', () => {
       departmentName: 'Contracts and Procurement',
       category: 'Goods',
       status: 'OPEN',
-      issueDate: '2026-07-01',
-      closingDate: '2026-09-15',
+      ...openTenderSchedule(),
     });
     expect(tender.status).toBe(201);
     const createdBidder = await request(app).post('/api/v1/bidders').set(authHeader(token)).send(bidder);
@@ -129,6 +130,8 @@ describeDatabase('BharatBid verification HTTP', () => {
     expect(created.status).toBe(201);
     expect(created.body.data.verification.status).toBe('matched');
     expect(created.body.data.verification.sourceMode).toBe('demo');
+    expect(created.body.data.verification.freshness).toBe('demo');
+    expect(created.body.data.verification.servedFromCache).toBe(false);
     expect(created.body.data.verification.sourceDisplayName).toBe('DEMO GST Registry');
     expect(created.body.data.verification.advisory).toMatch(/not an official government response/i);
     expect(created.body.data.verification.sourceSnapshot.legalName).toBe('Bayfront Engineering Private Limited');
@@ -149,6 +152,37 @@ describeDatabase('BharatBid verification HTTP', () => {
       .set(authHeader(session.tokens.accessToken));
     const actions = activity.body.data.items.map((item: { action: string }) => item.action);
     expect(actions).toEqual(expect.arrayContaining(['verification.requested', 'verification.completed']));
+  });
+
+  it('returns cached results as cached, not LIVE, unless force is set', async () => {
+    const session = await officerSession();
+    const { bidId } = await createBid(session.tokens.accessToken, {
+      legalName: 'Bayfront Engineering Private Limited',
+      gstin: '33AAAPB1234C1Z5',
+    });
+    const first = await request(app)
+      .post(`/api/v1/bids/${bidId}/verifications`)
+      .set(authHeader(session.tokens.accessToken))
+      .send({ source: 'gst', identifierType: 'gstin', identifier: '33AAAPB1234C1Z5' });
+    expect(first.status).toBe(201);
+    expect(first.body.data.verification.servedFromCache).toBe(false);
+    expect(first.body.data.verification.freshness).toBe('demo');
+
+    const cached = await request(app)
+      .post(`/api/v1/bids/${bidId}/verifications`)
+      .set(authHeader(session.tokens.accessToken))
+      .send({ source: 'gst', identifierType: 'gstin', identifier: '33AAAPB1234C1Z5' });
+    expect(cached.status).toBe(201);
+    expect(cached.body.data.verification.servedFromCache).toBe(true);
+    expect(cached.body.data.verification.freshness).not.toBe('live');
+
+    const forced = await request(app)
+      .post(`/api/v1/bids/${bidId}/verifications`)
+      .set(authHeader(session.tokens.accessToken))
+      .send({ source: 'gst', identifierType: 'gstin', identifier: '33AAAPB1234C1Z5', force: true });
+    expect(forced.status).toBe(201);
+    expect(forced.body.data.verification.servedFromCache).toBe(false);
+    expect(forced.body.data.verification.freshness).not.toBe('live');
   });
 
   it('records a mismatch, not-found, and adapter error as distinct statuses', async () => {
@@ -203,6 +237,7 @@ describeDatabase('BharatBid verification HTTP', () => {
       gstin: '33AAAPB1234C1Z5',
     });
     const reviewer = await reviewerSession();
+    await shareDefaultOrganization(getTestRepositories(), officer.user.id, reviewer.user.id);
     const forbidden = await request(app)
       .post(`/api/v1/bids/${bidId}/verifications`)
       .set(authHeader(reviewer.tokens.accessToken))

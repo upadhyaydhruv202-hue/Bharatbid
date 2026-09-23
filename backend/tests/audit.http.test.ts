@@ -129,8 +129,9 @@ describeDatabase('Audit HTTP', () => {
       action: AUDIT_ACTIONS.USER_CREATED,
       resource: 'user',
       resourceId: admin.user.id,
-      metadata: { email: 'admin@example.com' },
+      metadata: { email: '[Redacted]' },
     });
+    expect(JSON.stringify(created.body)).not.toMatch(/admin@example.com/);
 
     const logins = await request(app)
       .get('/api/v1/audit')

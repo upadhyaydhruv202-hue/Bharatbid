@@ -32,6 +32,11 @@ export function createBharatBidRouter(options: {
   router.post('/tenders/:id/status', ...tendersWrite, options.controller.updateTenderStatus);
   router.get('/tenders/:id/requirements', ...tendersRead, options.controller.listRequirements);
   router.post('/tenders/:id/requirements', ...tendersWrite, options.controller.createRequirement);
+  router.post(
+    '/tenders/:tenderId/requirements/:id/amendments',
+    ...tendersWrite,
+    options.controller.amendRequirement,
+  );
   router.patch('/tenders/:tenderId/requirements/:id', ...tendersWrite, options.controller.updateRequirement);
   router.post('/tenders/:tenderId/requirements/:id/activate', ...tendersWrite, options.controller.activateRequirement);
   router.post(

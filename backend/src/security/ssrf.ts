@@ -18,6 +18,7 @@ export interface SafeExternalUrlOptions {
   field?: string;
   allowHttp?: boolean;
   allowNonDefaultPorts?: boolean;
+  allowedHosts?: string[];
 }
 
 export function assertHttpUrl(value: string, field = 'url'): URL {
@@ -63,6 +64,14 @@ export function assertSafeExternalUrl(value: string, options: SafeExternalUrlOpt
   }
 
   const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (options.allowedHosts && options.allowedHosts.length > 0) {
+    const allow = new Set(options.allowedHosts.map((item) => item.toLowerCase()));
+    if (!allow.has(host)) {
+      throw new ValidationError('URL host is not allowed', [
+        { path: field, message: 'Host is not on the provider allowlist', code: 'custom' },
+      ]);
+    }
+  }
   if (isBlockedHost(host)) {
     throw new ValidationError('URL host is not allowed', [
       { path: field, message: 'Private, loopback, link-local, and metadata hosts are blocked', code: 'custom' },
@@ -113,12 +122,14 @@ export async function fetchExternal(
     lookup?: DnsLookup;
     allowHttp?: boolean;
     allowNonDefaultPorts?: boolean;
+    allowedHosts?: string[];
   },
 ): Promise<Response> {
   const parsed = await assertResolvedSafeExternalUrl(url, {
     field: init.field,
     allowHttp: init.allowHttp,
     allowNonDefaultPorts: init.allowNonDefaultPorts,
+    allowedHosts: init.allowedHosts,
     lookup: init.lookup,
   });
   const fetchImpl = init.fetchImpl ?? fetch;

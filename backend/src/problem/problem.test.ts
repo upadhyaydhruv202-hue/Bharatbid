@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ValidationError } from '../errors';
 import { maskPan, normalizeIdentifier, isValidGstin, isValidPan, isValidUdyam, identifierPresence, isProfileComplete } from './identifiers';
 import { bidderListQuerySchema, bidDocumentListQuerySchema, bidListQuerySchema, createBidDocumentBodySchema, createBidderBodySchema, createCrossVerificationBodySchema, createEvaluationBodySchema, createEvaluationDecisionBodySchema, createEvaluationNoteBodySchema, createReviewAssessmentBodySchema, createReviewClarificationBodySchema, createTenderBodySchema, createVerificationBodySchema, attentionListQuerySchema, evaluationListQuerySchema, reviewListQuerySchema, tenderListQuerySchema } from './schemas';
-import { activityTitle, toBidDocumentListItem, toTenderReadiness } from './serialize';
+import { activityTitle, toBidDocumentListItem, toTenderReadiness, verificationFreshness } from './serialize';
 import { assertBidStatusTransition, assertTenderStatusTransition, canAcceptBids, TENDER_STATUS_ACTIONS } from './transitions';
 import { normalizeTenderCategory } from './types';
 
@@ -269,6 +269,30 @@ describe('Bid document presentation', () => {
   });
 });
 
+describe('verification freshness', () => {
+  it('never labels cached live results as LIVE', () => {
+    const live = verificationFreshness({
+      sourceMode: 'live',
+      requestedAt: new Date('2026-09-18T00:00:00.000Z'),
+      completedAt: new Date('2026-09-18T00:00:00.000Z'),
+      servedFromCache: false,
+      cacheTtlMs: 60_000,
+      now: new Date('2026-09-18T00:00:10.000Z'),
+    });
+    const cached = verificationFreshness({
+      sourceMode: 'live',
+      requestedAt: new Date('2026-09-18T00:00:00.000Z'),
+      completedAt: new Date('2026-09-18T00:00:00.000Z'),
+      servedFromCache: true,
+      cacheTtlMs: 60_000,
+      now: new Date('2026-09-18T00:05:00.000Z'),
+    });
+    expect(live.freshness).toBe('live');
+    expect(cached.freshness).toBe('cached');
+    expect(cached.servedFromCache).toBe(true);
+  });
+});
+
 describe('BharatBid review schemas', () => {
   it('rejects officer identity in assessment bodies and maps limit to pageSize', () => {
     expect(
@@ -338,6 +362,7 @@ describe('Tender readiness', () => {
         status: 'draft',
         issueDate: new Date('2026-07-01'),
         closingDate: new Date('2026-08-01'),
+        organizationId: '11111111-1111-4111-8111-aaaaaaaaaaa1',
         createdById: null,
         createdAt: new Date(),
         updatedAt: new Date(),

@@ -32,7 +32,7 @@ export type VerificationIdentifierTypeName = (typeof VERIFICATION_IDENTIFIER_TYP
 export const VERIFIABLE_IDENTIFIER_TYPES = VERIFICATION_IDENTIFIER_TYPES;
 export type VerifiableIdentifierTypeName = (typeof VERIFIABLE_IDENTIFIER_TYPES)[number];
 
-export const VERIFICATION_SOURCE_MODES = ['demo', 'external'] as const;
+export const VERIFICATION_SOURCE_MODES = ['demo', 'external', 'sandbox', 'live', 'manual'] as const;
 export type VerificationSourceModeName = (typeof VERIFICATION_SOURCE_MODES)[number];
 
 export const VERIFICATION_STATUSES = [
@@ -111,7 +111,26 @@ export const VERIFICATION_IDENTIFIER_LABELS: Record<VerificationIdentifierTypeNa
 };
 
 export const DEMO_SOURCE_ADVISORY =
-  'Demo source — simulated verification data. Not an official government response.';
+  'DEMO — SYNTHETIC DATA. Not an official government response.';
+
+export const LIVE_SOURCE_ADVISORY =
+  'LIVE authorized-provider response. Not a government award or eligibility decision.';
+
+export const MANUAL_SOURCE_ADVISORY =
+  'MANUAL VERIFICATION REQUIRED. Officer must confirm against the official source and attach evidence.';
+
+export function advisoryForSourceMode(mode: VerificationSourceModeName): string {
+  if (mode === 'live') {
+    return LIVE_SOURCE_ADVISORY;
+  }
+  if (mode === 'sandbox') {
+    return 'SANDBOX provider response. Not production government data.';
+  }
+  if (mode === 'manual') {
+    return MANUAL_SOURCE_ADVISORY;
+  }
+  return DEMO_SOURCE_ADVISORY;
+}
 
 export const NOT_FOUND_DISCLAIMER =
   'No matching record found in the selected demo source. This does not by itself prove that the bidder is invalid.';

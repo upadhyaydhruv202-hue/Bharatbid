@@ -46,4 +46,14 @@ export type RegisterBody = z.infer<typeof registerBodySchema>;
 export type LoginBody = z.infer<typeof loginBodySchema>;
 export type RefreshBody = z.infer<typeof refreshBodySchema>;
 export type PasswordResetRequestBody = z.infer<typeof passwordResetRequestBodySchema>;
-export type PasswordResetConfirmBody = z.infer<typeof passwordResetConfirmBodySchema>;
+export const googleCredentialBodySchema = z.object({
+  credential: z.string().min(1).max(8_192),
+  organizationName: z.string().trim().min(1).max(160).optional(),
+});
+
+export const identifierOtpRequestSchema = z.object({
+  destination: z.string().trim().min(1).max(254),
+  purpose: z.enum(['login', 'signup', 'verification', 'password-reset', 'generic']).optional(),
+  displayName: z.string().trim().min(1).max(120).optional(),
+  organizationName: z.string().trim().min(1).max(160).optional(),
+});

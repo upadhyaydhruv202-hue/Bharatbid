@@ -63,6 +63,8 @@ export async function resetDatabase(client: PrismaClient = getTestPrisma()): Pro
       bidders,
       user_roles,
       role_permissions,
+      organization_members,
+      organizations,
       users,
       roles,
       permissions

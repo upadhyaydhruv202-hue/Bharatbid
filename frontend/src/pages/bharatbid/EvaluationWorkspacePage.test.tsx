@@ -256,7 +256,7 @@ describe('EvaluationWorkspacePage', () => {
     expect(screen.getByText('CONFLICT')).toBeInTheDocument();
     expect(screen.getAllByText('Officer Review Priority').length).toBeGreaterThan(0);
     expect(screen.getByText(/not a bidder ranking/i)).toBeInTheDocument();
-    expect(screen.getAllByText('Not available in current bid data').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('NOT_AVAILABLE').length).toBeGreaterThan(0);
     expect(screen.queryByText(/rank 1|best bidder|automatically selected/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText('PASS'));

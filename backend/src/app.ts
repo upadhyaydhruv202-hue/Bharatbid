@@ -4,6 +4,7 @@ import express, { type Application, type Express } from 'express';
 import helmet from 'helmet';
 
 import { authenticate as createAuthenticate } from './auth/authenticate';
+import { GoogleAuthService } from './auth/google.service';
 import { createTokenServiceFromConfig } from './auth/jwt';
 import { TokenRevocationStore } from './auth/token-revocation';
 import { createLoginRateLimit } from './auth/login-rate-limit';
@@ -35,7 +36,7 @@ import { BidAttentionService } from './problem/attention.service';
 import { BidEvaluationService } from './problem/evaluation.service';
 import { BidOperationsService } from './problem/operations.service';
 import { TenderService } from './problem/tender.service';
-import { VerificationAdapterRegistry } from './problem/verification/registry';
+import { buildVerificationRegistry, listProviderCatalog } from './problem/verification/catalog';
 import { createAiService, isAiEnabled, type AIService } from './integrations/ai';
 import {
   createDocumentIntelligenceService,
@@ -250,7 +251,13 @@ export function createApp(options: CreateAppOptions): AppContext {
   const healthController = new HealthController(healthService);
   const apiInfoController = new ApiInfoController(options.config);
   const featuresController = new FeaturesController(options.config);
-  const authController = new AuthController(authService, otpService);
+  const authController = new AuthController(
+    authService,
+    otpService,
+    options.config,
+    new GoogleAuthService({ config: options.config }),
+    auditService,
+  );
   const auditController = new AuditController(prisma ? auditService : null);
   const rbacController = new RbacController(prisma ? new RbacService(prisma) : null);
   const aiController = new AiController(aiService);
@@ -297,16 +304,19 @@ export function createApp(options: CreateAppOptions): AppContext {
         options.config.documents.maxBytes,
       )
     : null;
+  const verificationRegistry = buildVerificationRegistry(options.config);
   const bidVerificationService = prisma
     ? new BidVerificationService(
         new BidVerificationRepository(prisma),
         new BidSubmissionRepository(prisma),
         new BidderRepository(prisma),
         new BidDocumentRepository(prisma),
-        new VerificationAdapterRegistry(),
+        verificationRegistry,
         auditService,
         auditRepository,
         notificationService,
+        () => listProviderCatalog(options.config, verificationRegistry),
+        options.config.verification.cacheTtlMs,
       )
     : null;
   const bidIntelligenceService = prisma

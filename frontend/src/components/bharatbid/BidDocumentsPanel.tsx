@@ -448,7 +448,7 @@ export function BidDocumentsPanel({
             ) : null}
             {viewing.extractionStatus === 'completed' && viewing.extractedText ? (
               <div>
-                <h3 className="text-sm font-semibold">Extracted information</h3>
+                <h3 className="text-sm font-semibold">OCR EXTRACTED — not GOVERNMENT VERIFIED</h3>
                 <p className="mt-1 text-xs text-foreground-muted">{viewing.extractionAdvisory || EXTRACTION_ADVISORY}</p>
                 <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-edge bg-surface-muted p-3 text-xs">
                   {viewing.extractedText}

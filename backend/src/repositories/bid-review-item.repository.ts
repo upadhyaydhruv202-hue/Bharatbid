@@ -1,6 +1,11 @@
 import type { BidReviewItem, Prisma } from '@prisma/client';
 
 import { mapPrismaError } from '../lib/prisma-error';
+import {
+  assertOrganizationAccess,
+  getOrganizationScope,
+  tenantOrganizationWhere,
+} from '../problem/organization-scope';
 import { parsePagination, toPaginatedResult, type PaginatedResult } from './query';
 import type { DbClient } from './types';
 import type { ReviewListQuery } from '../problem/schemas';
@@ -13,7 +18,7 @@ import type {
 
 const reviewInclude = {
   bid: { select: { id: true, submissionReference: true, status: true } },
-  tender: { select: { id: true, referenceNumber: true, title: true } },
+  tender: { select: { id: true, referenceNumber: true, title: true, organizationId: true } },
   bidder: { select: { id: true, legalName: true } },
   requirement: { select: { id: true, name: true, mandatory: true, requirementType: true } },
   document: {
@@ -55,7 +60,7 @@ const reviewInclude = {
 
 export type BidReviewItemRecord = BidReviewItem & {
   bid: { id: string; submissionReference: string; status: string };
-  tender: { id: string; referenceNumber: string; title: string };
+  tender: { id: string; referenceNumber: string; title: string; organizationId: string };
   bidder: { id: string; legalName: string };
   requirement: { id: string; name: string; mandatory: boolean; requirementType: string } | null;
   document: { id: string; originalFilename: string; documentType: string; extractionStatus: string } | null;
@@ -125,10 +130,19 @@ export class BidReviewItemRepository {
 
   async findById(id: string): Promise<BidReviewItemRecord | null> {
     try {
-      return (await this.db.bidReviewItem.findUnique({
+      const row = (await this.db.bidReviewItem.findUnique({
         where: { id },
         include: reviewInclude,
       })) as BidReviewItemRecord | null;
+      if (!row) {
+        return null;
+      }
+      try {
+        assertOrganizationAccess(row.tender.organizationId, getOrganizationScope());
+      } catch {
+        return null;
+      }
+      return row;
     } catch (error) {
       mapPrismaError(error);
     }
@@ -362,7 +376,8 @@ export class BidReviewItemRepository {
   }
 
   private where(query: ReviewListQuery): Prisma.BidReviewItemWhereInput {
-    const where: Prisma.BidReviewItemWhereInput = {};
+    const org = tenantOrganizationWhere();
+    const where: Prisma.BidReviewItemWhereInput = org ? { tender: org } : {};
     if (query.tenderId) where.tenderId = query.tenderId;
     if (query.bidId) where.bidSubmissionId = query.bidId;
     if (query.bidderId) where.bidderId = query.bidderId;

@@ -28,11 +28,12 @@ import {
 import { compareClaimsToSource, notFoundExplanation } from './verification/compare';
 import { extractClaimsFromText } from './verification/extract';
 import { VerificationAdapterRegistry } from './verification/registry';
+import type { ProviderCatalogEntry } from './verification/catalog';
 import {
-  DEMO_SOURCE_ADVISORY,
-  ERROR_DISCLAIMER,
+    ERROR_DISCLAIMER,
   SOURCE_SUPPORTED_IDENTIFIERS,
   VERIFICATION_SOURCE_LABELS,
+  advisoryForSourceMode,
   type FieldComparison,
   type NormalizedSourceRecord,
   type VerificationIdentifierOriginName,
@@ -54,7 +55,13 @@ export class BidVerificationService {
     private readonly audit?: AuditService | null,
     private readonly auditEvents?: AuditRepository | null,
     private readonly notifications?: NotificationService | null,
+    private readonly catalogFn?: () => ProviderCatalogEntry[],
+    private readonly cacheTtlMs = 60_000,
   ) {}
+
+  listHealth(): ProviderCatalogEntry[] {
+    return this.catalogFn?.() ?? [];
+  }
 
   listSources(): VerificationSourceView[] {
     return this.registry.list().map((adapter) => ({
@@ -63,7 +70,7 @@ export class BidVerificationService {
       mode: adapter.mode,
       availability: adapter.availability(),
       supportedIdentifierTypes: [...adapter.supportedIdentifierTypes],
-      advisory: DEMO_SOURCE_ADVISORY,
+      advisory: advisoryForSourceMode(adapter.mode),
     }));
   }
 
@@ -82,7 +89,7 @@ export class BidVerificationService {
       this.verifications.summarize(bidId),
     ]);
     return {
-      items: result.items.map(toVerificationListItem),
+      items: result.items.map((item) => toVerificationListItem(item, { cacheTtlMs: this.cacheTtlMs })),
       meta: result.meta,
       summary,
       sources: this.listSources(),
@@ -92,7 +99,13 @@ export class BidVerificationService {
   async get(bidId: string, id: string): Promise<VerificationDetail> {
     const row = await this.requireVerification(bidId, id);
     const history = await this.verifications.listByGroup(row.groupId);
-    return toVerificationDetail(row, history);
+    return toVerificationDetail(row, history, { cacheTtlMs: this.cacheTtlMs });
+  }
+
+  private async present(bidId: string, id: string, servedFromCache: boolean): Promise<VerificationDetail> {
+    const row = await this.requireVerification(bidId, id);
+    const history = await this.verifications.listByGroup(row.groupId);
+    return toVerificationDetail(row, history, { servedFromCache, cacheTtlMs: this.cacheTtlMs });
   }
 
   async request(bidId: string, input: CreateVerificationBody, actorId?: string): Promise<VerificationDetail> {
@@ -104,11 +117,21 @@ export class BidVerificationService {
       identifierValue: prepared.identifier,
     });
     if (
+      !input.force &&
       recent &&
       recent.documentId === (prepared.documentId ?? null) &&
       Date.now() - recent.requestedAt.getTime() < IDEMPOTENCY_WINDOW_MS
     ) {
-      return this.get(bidId, recent.id);
+      return this.present(bidId, recent.id, true);
+    }
+    if (
+      !input.force &&
+      recent &&
+      recent.status !== 'error' &&
+      recent.documentId === (prepared.documentId ?? null) &&
+      Date.now() - recent.requestedAt.getTime() < this.cacheTtlMs
+    ) {
+      return this.present(bidId, recent.id, true);
     }
     return this.execute(bidId, prepared, actorId, false);
   }
@@ -186,6 +209,9 @@ export class BidVerificationService {
       await this.verifications.markGroupNotLatest(groupId);
     }
 
+    const adapter = this.registry.require(prepared.source);
+    const mode = adapter.mode;
+
     await this.audit?.record({
       actorId,
       action: isRetry ? AUDIT_ACTIONS.VERIFICATION_RETRIED : AUDIT_ACTIONS.VERIFICATION_REQUESTED,
@@ -193,7 +219,7 @@ export class BidVerificationService {
       resourceId: bidId,
       metadata: {
         source: prepared.source,
-        sourceMode: 'demo',
+        sourceMode: mode,
         identifierType: prepared.identifierType,
         documentId: prepared.documentId,
         retry: isRetry,
@@ -201,7 +227,6 @@ export class BidVerificationService {
       status: 'succeeded',
     });
 
-    const adapter = this.registry.require(prepared.source);
     const lookup = await adapter.lookup({
       identifierType: prepared.identifierType,
       identifier: prepared.identifier,
@@ -209,7 +234,7 @@ export class BidVerificationService {
 
     let status: Extract<VerificationStatusName, 'matched' | 'mismatched' | 'not_found' | 'error'> = 'error';
     let fields: FieldComparison[] = [];
-    let snapshot: NormalizedSourceRecord | { recordFound: false; source: string; sourceMode: 'demo'; sourceDisplayName: string; identifier: string; retrievedAt: string } | null =
+    let snapshot: NormalizedSourceRecord | { recordFound: false; source: string; sourceMode: typeof mode; sourceDisplayName: string; identifier: string; retrievedAt: string } | null =
       null;
     let explanation = ERROR_DISCLAIMER;
     let errorCode: string | null = null;
@@ -221,7 +246,7 @@ export class BidVerificationService {
       snapshot = {
         recordFound: false,
         source: adapter.source,
-        sourceMode: 'demo',
+        sourceMode: mode,
         sourceDisplayName: adapter.displayName,
         identifier: prepared.identifier,
         retrievedAt: new Date().toISOString(),
@@ -230,7 +255,7 @@ export class BidVerificationService {
       status = 'error';
       errorCode = lookup.code;
       errorMessage = lookup.message;
-      explanation = `${ERROR_DISCLAIMER}\n\nSource: ${adapter.displayName}\nMode: DEMO / SIMULATED\n${DEMO_SOURCE_ADVISORY}`;
+      explanation = `${ERROR_DISCLAIMER}\n\nSource: ${adapter.displayName}\nMode: ${mode.toUpperCase()}\n${advisoryForSourceMode(mode)}`;
     } else {
       const compared = compareClaimsToSource(
         {
@@ -260,7 +285,7 @@ export class BidVerificationService {
       identifierValue: prepared.identifier,
       identifierOrigin: prepared.identifierOrigin,
       source: prepared.source,
-      sourceMode: 'demo',
+      sourceMode: adapter.mode,
       sourceDisplayName: adapter.displayName,
       status,
       explanation,
@@ -268,6 +293,11 @@ export class BidVerificationService {
       sourceSnapshot: snapshot ? (snapshot as unknown as Prisma.InputJsonValue) : null,
       errorCode,
       errorMessage,
+      requestId: randomUUID(),
+      providerReference:
+        lookup.ok && lookup.record.attributes && typeof lookup.record.attributes.requestId === 'string'
+          ? lookup.record.attributes.requestId
+          : null,
       requestedAt: new Date(),
       completedAt: new Date(),
       requestedById: actorId ?? null,
@@ -281,7 +311,7 @@ export class BidVerificationService {
       metadata: {
         verificationId: created.id,
         source: prepared.source,
-        sourceMode: 'demo',
+        sourceMode: mode,
         identifierType: prepared.identifierType,
         documentId: prepared.documentId,
         status,
@@ -294,14 +324,14 @@ export class BidVerificationService {
         userId: actorId,
         type: 'warning',
         title: 'Verification issue detected',
-        body: `${adapter.displayName} returned ${status.replace(/_/g, ' ')} (DEMO SOURCE).`,
+        body: `${adapter.displayName} returned ${status.replace(/_/g, ' ')} (${mode.toUpperCase()}).`,
         href: `/bharatbid/bids/${bidId}/verification`,
         entityType: 'verification',
         entityId: created.id,
       });
     }
 
-    return this.get(bidId, created.id);
+    return this.present(bidId, created.id, false);
   }
 
   private async prepare(bidId: string, input: CreateVerificationBody): Promise<PreparedVerification> {

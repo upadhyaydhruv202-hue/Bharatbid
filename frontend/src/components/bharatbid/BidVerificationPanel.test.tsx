@@ -245,7 +245,7 @@ describe('BidVerificationPanel', () => {
     stubApi();
     renderPanel();
     expect(await screen.findByText('Verification sources')).toBeInTheDocument();
-    expect(screen.getAllByText('DEMO SOURCE').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('DEMO — SYNTHETIC DATA').length).toBeGreaterThan(0);
     expect(
       screen.getAllByText('Demo source — simulated verification data. Not an official government response.').length,
     ).toBeGreaterThan(0);

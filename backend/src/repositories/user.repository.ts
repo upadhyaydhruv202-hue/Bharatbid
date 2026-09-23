@@ -28,15 +28,19 @@ export const USER_FILTER_CATALOG = {
 
 export interface CreateUserInput {
   email: string;
-  passwordHash: string;
+  passwordHash?: string | null;
   displayName: string;
   status?: UserStatus;
+  phone?: string | null;
+  googleSubject?: string | null;
 }
 
 export interface UpdateUserInput {
   displayName?: string;
   status?: UserStatus;
   passwordHash?: string;
+  phone?: string | null;
+  googleSubject?: string | null;
 }
 
 export interface UserListInput extends PaginationInput, SortInput {
@@ -44,7 +48,9 @@ export interface UserListInput extends PaginationInput, SortInput {
 }
 
 export interface UserAuthRecord extends PublicUser {
-  passwordHash: string;
+  passwordHash: string | null;
+  phone: string | null;
+  googleSubject: string | null;
 }
 
 export class UserRepository {
@@ -55,9 +61,11 @@ export class UserRepository {
       return await this.db.user.create({
         data: {
           email: normalizeEmail(input.email),
-          passwordHash: input.passwordHash,
+          passwordHash: input.passwordHash ?? null,
           displayName: input.displayName.trim(),
           status: input.status ?? 'active',
+          phone: input.phone ?? null,
+          googleSubject: input.googleSubject ?? null,
         },
         select: publicUserSelect,
       });
@@ -118,6 +126,24 @@ export class UserRepository {
     }
   }
 
+  async listOrganizations(userId: string): Promise<Array<{ id: string; name: string; slug: string; isDefault: boolean }>> {
+    try {
+      const rows = await this.db.organizationMember.findMany({
+        where: { userId },
+        include: { organization: { select: { id: true, name: true, slug: true } } },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+      });
+      return rows.map((row) => ({
+        id: row.organization.id,
+        name: row.organization.name,
+        slug: row.organization.slug,
+        isDefault: row.isDefault,
+      }));
+    } catch (error) {
+      mapPrismaError(error);
+    }
+  }
+
   async findByEmailForAuth(email: string): Promise<UserAuthRecord | null> {
     try {
       return await this.db.user.findUnique({
@@ -125,7 +151,76 @@ export class UserRepository {
         select: {
           ...publicUserSelect,
           passwordHash: true,
+          phone: true,
+          googleSubject: true,
         },
+      });
+    } catch (error) {
+      mapPrismaError(error);
+    }
+  }
+
+  async findByPhone(phone: string): Promise<UserAuthRecord | null> {
+    try {
+      return await this.db.user.findUnique({
+        where: { phone: normalizePhone(phone) },
+        select: {
+          ...publicUserSelect,
+          passwordHash: true,
+          phone: true,
+          googleSubject: true,
+        },
+      });
+    } catch (error) {
+      mapPrismaError(error);
+    }
+  }
+
+  async findByGoogleSubject(subject: string): Promise<UserAuthRecord | null> {
+    try {
+      return await this.db.user.findUnique({
+        where: { googleSubject: subject },
+        select: {
+          ...publicUserSelect,
+          passwordHash: true,
+          phone: true,
+          googleSubject: true,
+        },
+      });
+    } catch (error) {
+      mapPrismaError(error);
+    }
+  }
+
+  async findByIdentity(type: 'email' | 'mobile' | 'google', identifier: string): Promise<UserAuthRecord | null> {
+    try {
+      const identity = await this.db.userIdentity.findUnique({
+        where: { type_identifier: { type, identifier } },
+        select: { userId: true },
+      });
+      if (!identity) {
+        return null;
+      }
+      return await this.db.user.findUnique({
+        where: { id: identity.userId },
+        select: {
+          ...publicUserSelect,
+          passwordHash: true,
+          phone: true,
+          googleSubject: true,
+        },
+      });
+    } catch (error) {
+      mapPrismaError(error);
+    }
+  }
+
+  async linkIdentity(userId: string, type: 'email' | 'mobile' | 'google', identifier: string): Promise<void> {
+    try {
+      await this.db.userIdentity.upsert({
+        where: { type_identifier: { type, identifier } },
+        create: { userId, type, identifier },
+        update: { userId },
       });
     } catch (error) {
       mapPrismaError(error);
@@ -163,6 +258,8 @@ export class UserRepository {
           displayName: input.displayName?.trim(),
           status: input.status,
           passwordHash: input.passwordHash,
+          phone: input.phone,
+          googleSubject: input.googleSubject,
         },
         select: publicUserSelect,
       });
@@ -205,4 +302,16 @@ function mapUserWithRoles(
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+function normalizePhone(phone: string): string {
+  const trimmed = phone.trim();
+  if (trimmed.startsWith('+')) {
+    return `+${trimmed.slice(1).replace(/\D/g, '')}`;
+  }
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `+91${digits}`;
+  }
+  return `+${digits}`;
 }

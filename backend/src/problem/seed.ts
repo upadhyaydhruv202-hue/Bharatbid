@@ -7,6 +7,7 @@ import type { PrismaClient } from '@prisma/client';
 import { resolveLocalStorageDir } from '../integrations/storage/storage.keys';
 import { AUDIT_ACTIONS } from '../constants';
 import { DEFAULT_DEPARTMENT_NAME, DEFAULT_ORGANIZATION_NAME } from './types';
+import { DEMO_ORGANIZATION_ID, DEMO_ORGANIZATION_SLUG } from './organization-scope';
 import { compareClaimsToSource, notFoundExplanation } from './verification/compare';
 import { asSourceSnapshot, compareVerificationPair } from './intelligence/compare';
 import type { CrossComparisonTypeName } from './intelligence/types';
@@ -22,6 +23,12 @@ function id(label: string): string {
 }
 
 export async function seedBharatBidDemoData(prisma: PrismaClient): Promise<void> {
+  await prisma.organization.upsert({
+    where: { slug: DEMO_ORGANIZATION_SLUG },
+    update: { name: ORG },
+    create: { id: DEMO_ORGANIZATION_ID, slug: DEMO_ORGANIZATION_SLUG, name: ORG },
+  });
+
   const tenders = [
     {
       id: id('tender000001'),
@@ -99,7 +106,7 @@ export async function seedBharatBidDemoData(prisma: PrismaClient): Promise<void>
         issueDate: tender.issueDate,
         closingDate: tender.closingDate,
       },
-      create: tender,
+      create: { ...tender, organizationId: DEMO_ORGANIZATION_ID },
     });
   }
 
@@ -195,7 +202,9 @@ export async function seedBharatBidDemoData(prisma: PrismaClient): Promise<void>
           mandatory: item.mandatory,
           active: true,
           sortOrder: item.sortOrder,
-        },
+          groupId: item.id,
+          version: 1,
+        } as never,
       });
     }
   }
@@ -366,8 +375,8 @@ export async function seedBharatBidDemoData(prisma: PrismaClient): Promise<void>
   for (const bidder of bidders) {
     await prisma.bidder.upsert({
       where: { id: bidder.id },
-      update: bidder,
-      create: bidder,
+      update: { ...bidder, organizationId: DEMO_ORGANIZATION_ID },
+      create: { ...bidder, organizationId: DEMO_ORGANIZATION_ID },
     });
   }
 
@@ -405,6 +414,14 @@ export async function seedBharatBidDemoData(prisma: PrismaClient): Promise<void>
   }
 
   const officer = await prisma.user.findUnique({ where: { email: 'demo.officer@example.com' } });
+  const users = await prisma.user.findMany({ select: { id: true } });
+  for (const user of users) {
+    await prisma.organizationMember.upsert({
+      where: { organizationId_userId: { organizationId: DEMO_ORGANIZATION_ID, userId: user.id } },
+      update: { isDefault: true },
+      create: { organizationId: DEMO_ORGANIZATION_ID, userId: user.id, isDefault: true },
+    });
+  }
   await seedSyntheticBidDocuments(prisma, officer?.id ?? null);
   await seedDemoVerifications(prisma, officer?.id ?? null);
   await seedDemoCrossVerifications(prisma, officer?.id ?? null);

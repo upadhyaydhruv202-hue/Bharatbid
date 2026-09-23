@@ -42,7 +42,8 @@ import { evaluateRequirement, ruleForRequirement } from './intelligence/requirem
 import type { EvidenceStatusName, RequirementEvaluationName } from './intelligence/types';
 import type { CreateEvaluationDecisionBody, CreateEvaluationNoteBody, EvaluationListQuery } from './schemas';
 import { activityTitle } from './serialize';
-import { BHARATBID_AUDIT_RESOURCES, type BidDocumentTypeName, type TenderRequirementTypeName } from './types';
+import { assertEvaluationMayBegin, effectiveTenderStatus } from './transitions';
+import { BHARATBID_AUDIT_RESOURCES, type BidDocumentTypeName, type TenderRequirementTypeName, type TenderStatusName } from './types';
 import type { VerificationSourceName, VerificationStatusName } from './verification/types';
 import type { CrossVerificationStatusName } from './intelligence/types';
 
@@ -79,7 +80,7 @@ export class BidEvaluationService {
           organizationName: item.organizationName,
           departmentName: item.departmentName,
           category: item.category,
-          status: item.status,
+          status: effectiveTenderStatus(item),
           closingDate: item.closingDate.toISOString(),
           submittedBids: item._count.bids,
           underEvaluation: snapshot?.underEvaluation ?? 0,
@@ -97,7 +98,8 @@ export class BidEvaluationService {
   }
 
   async create(tenderId: string, actorId: string) {
-    await this.requireTender(tenderId);
+    const tender = await this.requireTender(tenderId);
+    assertEvaluationMayBegin(tender);
     const evaluable = await this.bids.listEvaluableByTenderIds([tenderId]);
     if (evaluable.length === 0) {
       throw new ValidationError('This tender has no submitted bids to evaluate', [
@@ -139,6 +141,10 @@ export class BidEvaluationService {
 
   async start(id: string, actorId: string) {
     const row = await this.require(id);
+    assertEvaluationMayBegin({
+      status: row.tender.status as TenderStatusName,
+      closingDate: row.tender.closingDate,
+    });
     assertEvaluationTransition(row.status, 'in_progress', 'start');
     const updated = await this.evaluations.updateStatus(id, {
       status: 'in_progress',
@@ -436,7 +442,7 @@ export class BidEvaluationService {
         organizationName: tender.organizationName,
         departmentName: tender.departmentName,
         category: tender.category,
-        status: tender.status,
+        status: effectiveTenderStatus(tender),
         closingDate: tender.closingDate.toISOString(),
       },
       evaluation: evaluation ? this.toEvaluationView(evaluation) : null,
@@ -780,7 +786,7 @@ export class BidEvaluationService {
         referenceNumber: row.tender.referenceNumber,
         title: row.tender.title,
         category: row.tender.category,
-        status: row.tender.status,
+        status: effectiveTenderStatus(row.tender),
         closingDate: row.tender.closingDate.toISOString(),
       },
       advisory: DEMO_EVALUATION_ADVISORY,

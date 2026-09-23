@@ -145,6 +145,35 @@ export function BidVerificationPanel({
     }
   }
 
+  async function onVerifyNow(detail: VerificationDetail) {
+    const snapshot =
+      detail.sourceSnapshot && typeof detail.sourceSnapshot === 'object'
+        ? (detail.sourceSnapshot as VerificationSourceSnapshot)
+        : null;
+    const identifier = snapshot?.identifier || detail.identifierValue;
+    setSaving(true);
+    try {
+      const result = await createBidVerification(
+        bidId,
+        {
+          source: detail.source,
+          identifierType: detail.identifierType,
+          identifier,
+          documentId: detail.documentId ?? undefined,
+          force: true,
+        },
+        token,
+      );
+      toast({ title: statusToast(result.status), variant: result.status === 'error' ? 'error' : 'success' });
+      await refresh();
+      setViewing(result);
+    } catch (caught) {
+      toast({ title: getApiErrorMessage(caught, 'Fresh verification could not be started'), variant: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function onRetry(id: string) {
     setSaving(true);
     try {
@@ -172,7 +201,14 @@ export function BidVerificationPanel({
       {
         id: 'mode',
         header: 'Mode',
-        accessor: () => <DemoSourceBadge />,
+        accessor: (row: VerificationListItem) => (
+          <DemoSourceBadge
+            mode={row.sourceMode}
+            freshness={row.freshness}
+            servedFromCache={row.servedFromCache}
+            cacheAgeSeconds={row.cacheAgeSeconds}
+          />
+        ),
       },
       {
         id: 'result',
@@ -238,7 +274,7 @@ export function BidVerificationPanel({
                 <li key={source.source} className="rounded-lg border border-edge p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium">{source.displayName}</p>
-                    <DemoSourceBadge />
+                    <DemoSourceBadge mode={source.mode} />
                     <Badge tone={source.availability === 'available' ? 'success' : 'warning'}>
                       {source.availability === 'available' ? 'Available' : 'Unavailable'}
                     </Badge>
@@ -315,6 +351,7 @@ export function BidVerificationPanel({
         saving={saving}
         onClose={() => setViewing(undefined)}
         onRetry={(id) => void onRetry(id)}
+        onVerifyNow={() => viewing && void onVerifyNow(viewing)}
       />
     </div>
   );
@@ -327,6 +364,7 @@ function VerificationDetailModal({
   saving,
   onClose,
   onRetry,
+  onVerifyNow,
 }: {
   open: boolean;
   detail?: VerificationDetail;
@@ -334,6 +372,7 @@ function VerificationDetailModal({
   saving: boolean;
   onClose: () => void;
   onRetry: (id: string) => void;
+  onVerifyNow: () => void;
 }) {
   const fields = Array.isArray(detail?.fieldComparisons)
     ? (detail.fieldComparisons as VerificationFieldComparison[])
@@ -358,6 +397,11 @@ function VerificationDetailModal({
               Retry
             </Button>
           ) : null}
+          {canWrite && detail ? (
+            <Button loading={saving} onClick={onVerifyNow}>
+              Verify now
+            </Button>
+          ) : null}
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
@@ -368,7 +412,12 @@ function VerificationDetailModal({
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge kind="verification" value={detail.status} />
-            <DemoSourceBadge />
+            <DemoSourceBadge
+              mode={detail.sourceMode}
+              freshness={detail.freshness}
+              servedFromCache={detail.servedFromCache}
+              cacheAgeSeconds={detail.cacheAgeSeconds}
+            />
           </div>
           <h3 className="text-sm font-semibold">Evidence</h3>
           <p className="text-sm text-foreground-muted">{detail.advisory || DEMO_SOURCE_ADVISORY}</p>
@@ -377,9 +426,19 @@ function VerificationDetailModal({
             <Meta label="Origin" value={ORIGIN_LABELS[detail.identifierOrigin] ?? detail.identifierOrigin} />
             <Meta label="Document" value={detail.documentTypeLabel || detail.documentFilename} />
             <Meta label="Source" value={detail.sourceDisplayName} />
-            <Meta label="Mode" value="SIMULATED" />
-            <Meta label="Requested" value={formatDateTime(detail.requestedAt)} />
-            <Meta label="Retrieved" value={formatDateTime(detail.completedAt ?? snapshot?.retrievedAt)} />
+            <Meta label="Mode" value={detail.sourceMode} />
+            <Meta label="Provider" value={detail.provider || detail.sourceDisplayName} />
+            <Meta label="Verified at" value={formatDateTime(detail.verifiedAt ?? detail.completedAt)} />
+            <Meta label="Retrieved at" value={formatDateTime(detail.retrievedAt ?? snapshot?.retrievedAt ?? detail.requestedAt)} />
+            <Meta
+              label="Cache age"
+              value={
+                typeof detail.cacheAgeSeconds === 'number'
+                  ? `${Math.max(1, Math.round(detail.cacheAgeSeconds / 60))} min`
+                  : null
+              }
+            />
+            <Meta label="Expires at" value={formatDateTime(detail.expiresAt)} />
             <Meta label="Requested by" value={detail.requestedByName} />
           </dl>
           {detail.status === 'mismatched' ? (
@@ -486,8 +545,32 @@ function VerificationDetailModal({
   );
 }
 
-export function DemoSourceBadge() {
-  return <Badge tone="warning">DEMO SOURCE</Badge>;
+export function DemoSourceBadge({
+  mode,
+  freshness,
+  servedFromCache,
+  cacheAgeSeconds,
+}: {
+  mode?: string;
+  freshness?: string;
+  servedFromCache?: boolean;
+  cacheAgeSeconds?: number | null;
+}) {
+  const normalized = (freshness ?? mode ?? 'demo').toLowerCase();
+  if (normalized === 'live' && !servedFromCache) {
+    return <Badge tone="success">LIVE · Verified just now</Badge>;
+  }
+  if (normalized === 'cached' || (mode === 'live' && servedFromCache)) {
+    const minutes = Math.max(1, Math.round((cacheAgeSeconds ?? 0) / 60));
+    return <Badge tone="info">CACHED · Verified {minutes} minutes ago</Badge>;
+  }
+  if (normalized === 'sandbox' || mode === 'sandbox') {
+    return <Badge tone="info">SANDBOX</Badge>;
+  }
+  if (normalized === 'manual' || mode === 'manual') {
+    return <Badge tone="neutral">MANUAL · Official source manually verified</Badge>;
+  }
+  return <Badge tone="warning">DEMO — SYNTHETIC DATA</Badge>;
 }
 
 function CountCard({ label, value }: { label: string; value: number }) {

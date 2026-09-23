@@ -120,6 +120,20 @@ describe('audit redaction', () => {
     });
   });
 
+  it('redacts email and Aadhaar keys', () => {
+    expect(
+      redactAuditValue({
+        contactEmail: 'officer@example.com',
+        aadhaar: '123412341234',
+        legalName: 'Bayfront Engineering Private Limited',
+      }),
+    ).toEqual({
+      contactEmail: '[Redacted]',
+      aadhaar: '[Redacted]',
+      legalName: 'Bayfront Engineering Private Limited',
+    });
+  });
+
   it('redacts bidder identifiers such as PAN and GSTIN', () => {
     expect(
       redactAuditValue({

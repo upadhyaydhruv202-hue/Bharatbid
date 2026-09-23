@@ -56,7 +56,7 @@ describe('GET /api/v1/features', () => {
     expect(response.status).toBe(200);
     expect(response.body.data.features.pdf).toBe(true);
     expect(response.body.data.features.s3).toBe(false);
-    expect(response.body.data.features.otp).toBe(false);
+    expect(response.body.data.features.otp).toBe(true);
   });
 
   it('reports production mode when DEMO_MODE is false', async () => {

@@ -15,6 +15,8 @@ import {
   getTestRepositories,
   resetDatabase,
 } from './helpers/database';
+import { createOpenTenderWithRequirements } from './helpers/tender-setup';
+import { shareDefaultOrganization } from './helpers/organization';
 
 const logger = pino({ level: 'silent' });
 const VALID_PASSWORD = 'correct-horse';
@@ -89,27 +91,24 @@ describeDatabase('BharatBid attention intelligence HTTP', () => {
   }
 
   async function createBid(token: string) {
-    const tender = await request(app).post('/api/v1/tenders').set(authHeader(token)).send({
-      referenceNumber: `GEM/2026/B/ATT/${Date.now()}-${Math.floor(Math.random() * 10_000)}`,
-      title: 'Attention intelligence tender',
-      organizationName: 'Chennai Petroleum Corporation Limited',
-      departmentName: 'Contracts and Procurement',
-      category: 'Goods',
-      status: 'OPEN',
-      issueDate: '2026-07-01',
-      closingDate: '2026-09-15',
-    });
-    expect(tender.status).toBe(201);
-    await request(app)
-      .post(`/api/v1/tenders/${tender.body.data.tender.id}/requirements`)
-      .set(authHeader(token))
-      .send({ name: 'GST registration', requirementType: 'statutory', mandatory: true });
+    const published = await createOpenTenderWithRequirements(
+      app,
+      token,
+      {
+        referenceNumber: `GEM/2026/B/ATT/${Date.now()}-${Math.floor(Math.random() * 10_000)}`,
+        title: 'Attention intelligence tender',
+        organizationName: 'Chennai Petroleum Corporation Limited',
+        departmentName: 'Contracts and Procurement',
+        category: 'Goods',
+      },
+      [{ name: 'GST registration', requirementType: 'statutory', mandatory: true }],
+    );
     const bidder = await request(app).post('/api/v1/bidders').set(authHeader(token)).send({
       legalName: 'Harbour Crane Spares',
     });
     expect(bidder.status).toBe(201);
     const bid = await request(app)
-      .post(`/api/v1/tenders/${tender.body.data.tender.id}/bids`)
+      .post(`/api/v1/tenders/${published.tenderId}/bids`)
       .set(authHeader(token))
       .send({ bidderId: bidder.body.data.bidder.id });
     expect(bid.status).toBe(201);
@@ -146,6 +145,7 @@ describeDatabase('BharatBid attention intelligence HTTP', () => {
   it('allows reviewer read access and rejects cross-bid intelligence', async () => {
     const officer = await officerSession();
     const reviewer = await reviewerSession();
+    await shareDefaultOrganization(getTestRepositories(), officer.user.id, reviewer.user.id);
     const first = await createBid(officer.tokens.accessToken);
     const second = await createBid(officer.tokens.accessToken);
 

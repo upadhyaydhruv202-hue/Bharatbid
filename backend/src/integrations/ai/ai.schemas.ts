@@ -331,6 +331,7 @@ export const aiDecisionEnvelopeSchema = z.object({
 });
 
 export const aiStructuredSchemaNameSchema = z.enum(['insight', 'decision']);
+export const aiHttpStructuredSchemaNameSchema = z.enum(['insight']);
 
 export const aiHttpMessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
@@ -383,7 +384,7 @@ export const aiDraftBodySchema = aiDraftFieldsSchema
 
 export const aiStructuredBodySchema = aiGenerationOptionsSchema.omit(httpUnsafeKeys).extend({
   prompt: aiPromptSchema,
-  schemaName: aiStructuredSchemaNameSchema.default('insight'),
+  schemaName: aiHttpStructuredSchemaNameSchema.default('insight'),
 });
 
 export const aiEmbedBodySchema = aiEmbedInputSchema.omit({ model: true });

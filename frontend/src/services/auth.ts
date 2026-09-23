@@ -1,10 +1,49 @@
-import type { AuthSessionPayload, AuthUser } from '../types/api';
+import type { AuthPublicConfig, AuthSessionPayload, AuthUser, OtpChallenge } from '../types/api';
 import { apiRequest } from './api';
 
 export function login(email: string, password: string) {
   return apiRequest<AuthSessionPayload>('/api/v1/auth/login', {
     method: 'POST',
     body: { email, password },
+  });
+}
+
+export function getAuthPublicConfig() {
+  return apiRequest<AuthPublicConfig>('/api/v1/auth/public-config');
+}
+
+export function requestOtp(input: {
+  destination: string;
+  channel: 'email' | 'sms';
+  purpose?: 'login' | 'signup';
+}) {
+  const path = input.channel === 'sms' ? '/api/v1/auth/mobile/request-otp' : '/api/v1/auth/email/request-otp';
+  return apiRequest<OtpChallenge>(path, {
+    method: 'POST',
+    body: input,
+  });
+}
+
+export function verifyOtp(input: {
+  destination: string;
+  code: string;
+  purpose?: 'login' | 'signup';
+  channel: 'email' | 'sms';
+  displayName?: string;
+  organizationName?: string;
+  phone?: string;
+}) {
+  const path = input.channel === 'sms' ? '/api/v1/auth/mobile/verify-otp' : '/api/v1/auth/email/verify-otp';
+  return apiRequest<AuthSessionPayload & { verified: boolean }>(path, {
+    method: 'POST',
+    body: input,
+  });
+}
+
+export function signInWithGoogle(credential: string, organizationName?: string) {
+  return apiRequest<AuthSessionPayload>('/api/v1/auth/google', {
+    method: 'POST',
+    body: { credential, organizationName },
   });
 }
 

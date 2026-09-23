@@ -40,6 +40,8 @@ export interface CreateBidVerificationRecord {
   requestedAt?: Date;
   completedAt?: Date | null;
   requestedById?: string | null;
+  providerReference?: string | null;
+  requestId?: string | null;
 }
 
 export class BidVerificationRepository {

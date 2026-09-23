@@ -15,6 +15,7 @@ import { hasPermission } from '../../lib/rbac';
 import { getApiErrorMessage } from '../../services/api';
 import {
   createTenderRequirement,
+  amendTenderRequirement,
   downloadTenderEvaluationReport,
   getTender,
   listBids,
@@ -113,7 +114,20 @@ export function TenderDetailPage() {
     setFormError(undefined);
     const sortOrder = value.sortOrder === '' ? undefined : Number(value.sortOrder);
     try {
-      if (editing) {
+      if (editing && tender?.status === 'open') {
+        await amendTenderRequirement(
+          id,
+          editing.id,
+          {
+            name: value.name,
+            description: value.description,
+            requirementType: value.requirementType,
+            mandatory: value.mandatory,
+            changeReason: value.changeReason,
+          },
+          accessToken,
+        );
+      } else if (editing) {
         await updateTenderRequirement(
           id,
           editing.id,
@@ -143,7 +157,10 @@ export function TenderDetailPage() {
       }
       setEditorOpen(false);
       setEditing(null);
-      toast({ title: editing ? 'Requirement updated' : 'Requirement added', variant: 'success' });
+      toast({
+        title: editing && tender?.status === 'open' ? 'Requirement amended' : editing ? 'Requirement updated' : 'Requirement added',
+        variant: 'success',
+      });
       await load(accessToken);
     } catch (caught) {
       setFormError(getApiErrorMessage(caught, 'Could not save the requirement.'));
@@ -288,9 +305,10 @@ export function TenderDetailPage() {
 
       <RequirementEditor
         open={editorOpen}
-        title={editing ? 'Edit requirement' : 'Add requirement'}
+        title={editing && tender?.status === 'open' ? 'Amend published requirement' : editing ? 'Edit requirement' : 'Add requirement'}
         initial={editing}
-        lockCore={Boolean(locks?.requirementCore && editing)}
+        lockCore={Boolean(locks?.requirementCore && editing && tender?.status !== 'open')}
+        amendMode={Boolean(editing && tender?.status === 'open')}
         loading={saving}
         error={formError}
         onClose={() => setEditorOpen(false)}
@@ -566,8 +584,14 @@ function RequirementsTab({
           <p className="mt-1 text-xs text-foreground-muted">
             {counts.total} total · {counts.mandatory} mandatory · {counts.optional} optional · {counts.active} active
           </p>
+          {tender.status !== 'draft' ? (
+            <p className="mt-2 text-xs text-foreground-muted">
+              Requirements are frozen after publish. Officers may record a versioned amendment while bidding is open.
+              Historical versions remain visible.
+            </p>
+          ) : null}
         </div>
-        {readOnly ? null : <Button onClick={onAdd}>Add requirement</Button>}
+        {readOnly || tender.status !== 'draft' ? null : <Button onClick={onAdd}>Add requirement</Button>}
       </div>
       <DataTable
         columns={[
@@ -588,7 +612,7 @@ function RequirementsTab({
             accessor: (row) =>
               readOnly ? (
                 <span className="text-xs text-foreground-muted">View only</span>
-              ) : (
+              ) : tender.status === 'draft' ? (
                 <div className="flex flex-wrap items-center gap-1" onClick={(event) => event.stopPropagation()}>
                   <Button size="sm" variant="ghost" aria-label="Move up" onClick={() => onMove(row, 'up')}>
                     Up
@@ -614,6 +638,14 @@ function RequirementsTab({
                     ]}
                   />
                 </div>
+              ) : tender.status === 'open' && row.active ? (
+                <Button size="sm" variant="outline" onClick={() => onEdit(row)}>
+                  Amend
+                </Button>
+              ) : (
+                <span className="text-xs text-foreground-muted">
+                  {row.active ? 'Frozen' : `v${row.version ?? 1} historical`}
+                </span>
               ),
           },
         ]}

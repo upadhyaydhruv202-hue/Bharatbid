@@ -16,6 +16,7 @@ import { BidReviewItemRepository } from './bid-review-item.repository';
 import { TenderEvaluationRepository } from './tender-evaluation.repository';
 import { BidderRepository } from './bidder.repository';
 import { TenderRequirementRepository } from './tender-requirement.repository';
+import { OrganizationRepository } from './organization.repository';
 import { TenderRepository } from './tender.repository';
 import type { DbClient } from './types';
 
@@ -29,6 +30,7 @@ export function createRepositories(db: DbClient) {
     documents: new DocumentRepository(db),
     files: new FileRepository(db),
     audit: new AuditRepository(db),
+    organizations: new OrganizationRepository(db),
     tenders: new TenderRepository(db),
     tenderRequirements: new TenderRequirementRepository(db),
     bidders: new BidderRepository(db),
@@ -51,6 +53,7 @@ export { UserRepository } from './user.repository';
 export { DocumentRepository } from './document.repository';
 export { FileRepository } from './file.repository';
 export { AuditRepository } from './audit.repository';
+export { OrganizationRepository } from './organization.repository';
 export { TenderRepository } from './tender.repository';
 export { TenderRequirementRepository } from './tender-requirement.repository';
 export { BidderRepository } from './bidder.repository';

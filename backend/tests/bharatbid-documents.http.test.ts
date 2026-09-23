@@ -16,6 +16,8 @@ import {
   getTestRepositories,
   resetDatabase,
 } from './helpers/database';
+import { createOpenTenderWithRequirements } from './helpers/tender-setup';
+import { shareDefaultOrganization } from './helpers/organization';
 
 const logger = pino({ level: 'silent' });
 const VALID_PASSWORD = 'correct-horse';
@@ -95,34 +97,30 @@ describeDatabase('BharatBid document evidence HTTP', () => {
   }
 
   async function createOpenBid(token: string) {
-    const tender = await request(app).post('/api/v1/tenders').set(authHeader(token)).send({
-      referenceNumber: 'GEM/2026/B/DOC/001',
-      title: 'Document evidence tender',
-      organizationName: 'Chennai Petroleum Corporation Limited',
-      departmentName: 'Contracts and Procurement',
-      category: 'Goods',
-      status: 'OPEN',
-      issueDate: '2026-07-01',
-      closingDate: '2026-09-15',
-    });
-    expect(tender.status).toBe(201);
-    const requirement = await request(app)
-      .post(`/api/v1/tenders/${tender.body.data.tender.id}/requirements`)
-      .set(authHeader(token))
-      .send({ name: 'GST registration', requirementType: 'statutory', mandatory: true });
-    expect(requirement.status).toBe(201);
+    const published = await createOpenTenderWithRequirements(
+      app,
+      token,
+      {
+        referenceNumber: 'GEM/2026/B/DOC/001',
+        title: 'Document evidence tender',
+        organizationName: 'Chennai Petroleum Corporation Limited',
+        departmentName: 'Contracts and Procurement',
+        category: 'Goods',
+      },
+      [{ name: 'GST registration', requirementType: 'statutory', mandatory: true }],
+    );
     const bidder = await request(app).post('/api/v1/bidders').set(authHeader(token)).send({
       legalName: 'Evidence Bidder Private Limited',
     });
     expect(bidder.status).toBe(201);
     const bid = await request(app)
-      .post(`/api/v1/tenders/${tender.body.data.tender.id}/bids`)
+      .post(`/api/v1/tenders/${published.tenderId}/bids`)
       .set(authHeader(token))
       .send({ bidderId: bidder.body.data.bidder.id });
     expect(bid.status).toBe(201);
     return {
-      tenderId: tender.body.data.tender.id as string,
-      requirementId: requirement.body.data.requirement.id as string,
+      tenderId: published.tenderId,
+      requirementId: published.requirements[0].id,
       bidId: bid.body.data.bid.id as string,
     };
   }
@@ -151,7 +149,7 @@ describeDatabase('BharatBid document evidence HTTP', () => {
     expect(created.body.data.document.storageKey).toBeUndefined();
     expect(created.body.data.document.extractionStatus).toBe('completed');
     expect(created.body.data.document.extractedText).toContain('DEMO / SYNTHETIC');
-    expect(created.body.data.document.extractionAdvisory).toMatch(/not independently verified/i);
+    expect(created.body.data.document.extractionAdvisory).toMatch(/not government verified/i);
 
     const listed = await request(app)
       .get(`/api/v1/bids/${bidId}/documents`)
@@ -216,6 +214,7 @@ describeDatabase('BharatBid document evidence HTTP', () => {
     expect(created.status).toBe(201);
 
     const reviewer = await reviewerSession();
+    await shareDefaultOrganization(getTestRepositories(), officer.user.id, reviewer.user.id);
     const forbidden = await upload(
       reviewer.tokens.accessToken,
       bidId,

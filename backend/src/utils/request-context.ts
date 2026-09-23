@@ -6,6 +6,8 @@ export interface RequestContext {
   jobId?: string;
   actorId?: string;
   ip?: string;
+  organizationIds?: string[];
+  currentOrganizationId?: string | null;
 }
 
 const storage = new AsyncLocalStorage<RequestContext>();
@@ -27,6 +29,15 @@ export function setRequestActor(actorId: string | undefined): void {
   if (store && actorId) {
     store.actorId = actorId;
   }
+}
+
+export function setOrganizationScope(organizationIds: string[], currentOrganizationId?: string | null): void {
+  const store = storage.getStore();
+  if (!store) {
+    return;
+  }
+  store.organizationIds = organizationIds;
+  store.currentOrganizationId = currentOrganizationId ?? organizationIds[0] ?? null;
 }
 
 export function withRequestId<T extends Record<string, unknown>>(payload: T): T & { requestId: string } {

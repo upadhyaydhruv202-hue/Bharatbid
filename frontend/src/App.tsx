@@ -4,6 +4,7 @@ import { AuthProvider } from './auth/AuthProvider';
 import { FeatureProvider } from './features';
 import { AppLayout } from './layouts/AppLayout';
 import { LoginPage } from './pages/LoginPage';
+import { SignupPage } from './pages/SignupPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { BharatBidOverviewPage } from './pages/bharatbid/OverviewPage';
 import { TendersPage } from './pages/bharatbid/TendersPage';
@@ -37,6 +38,7 @@ export function App() {
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<Navigate to="/bharatbid" replace />} />
                     <Route path="/login" element={<LoginPage />} />
+                    <Route path="/signup" element={<SignupPage />} />
                     <Route path="/notifications" element={<NotificationsPage />} />
                     <Route path="/bharatbid" element={<BharatBidOverviewPage />} />
                     <Route path="/bharatbid/activity" element={<ActivityPage />} />

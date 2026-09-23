@@ -6,6 +6,7 @@ import type {
 } from '@prisma/client';
 
 import { mapPrismaError } from '../lib/prisma-error';
+import { tenantOrganizationWhere } from '../problem/organization-scope';
 import { parsePagination, toPaginatedResult, type PaginatedResult } from './query';
 import type { DbClient } from './types';
 import { EVALUABLE_BID_STATUSES, type TenderEvaluationStatusName } from '../problem/evaluation/types';
@@ -143,9 +144,19 @@ export class TenderEvaluationRepository {
   async listTenders(query: EvaluationListQuery): Promise<PaginatedResult<EvaluationTenderListRecord>> {
     const pagination = parsePagination(query);
     const where: Prisma.TenderWhereInput = {
+      ...tenantOrganizationWhere(),
       bids: { some: { status: { in: [...EVALUABLE_BID_STATUSES] } } },
     };
-    if (query.status) {
+    const now = new Date();
+    if (query.status === 'open') {
+      where.status = 'open';
+      where.closingDate = { gt: now };
+    } else if (query.status === 'closed') {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        { OR: [{ status: 'closed' }, { status: 'open', closingDate: { lte: now } }] },
+      ];
+    } else if (query.status) {
       where.status = query.status;
     }
     if (query.category) {

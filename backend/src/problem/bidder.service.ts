@@ -1,6 +1,7 @@
 import type { AuditService } from '../audit/audit.service';
 import { AUDIT_ACTIONS } from '../constants';
-import { ConflictError, NotFoundError } from '../errors';
+import { ConflictError, NotFoundError, ValidationError } from '../errors';
+import { requireCurrentOrganizationId } from './organization-scope';
 import type { AuditRepository } from '../repositories/audit.repository';
 import type { BidderRepository } from '../repositories/bidder.repository';
 import type { PaginatedResult } from '../repositories/query';
@@ -40,7 +41,14 @@ export class BidderService {
 
   async create(input: CreateBidderBody, actorId?: string): Promise<BidderDetail> {
     try {
+      const organizationId = requireCurrentOrganizationId();
+      if (!organizationId) {
+        throw new ValidationError('Organization context is required', [
+          { path: 'organizationId', message: 'Join an organization before registering a bidder', code: 'custom' },
+        ]);
+      }
       const created = await this.bidders.create({
+        organizationId,
         legalName: input.legalName.trim(),
         ...toBidderRecord(input),
       });

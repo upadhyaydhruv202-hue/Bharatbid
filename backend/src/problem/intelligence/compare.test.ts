@@ -78,6 +78,19 @@ describe('Cross-source comparison', () => {
     expect(result.fields.find((field) => field.field === 'legalName')?.outcome).toBe('normalized_match');
   });
 
+  it('does not treat a missing field on one source as a mismatch', () => {
+    const result = compareVerificationPair(
+      pair({
+        leftSnapshot: snapshot('gst', 'ABC Technologies Private Limited', null),
+        rightSnapshot: snapshot('mca', 'ABC Technologies Private Limited', 'Gujarat'),
+      }),
+    );
+    expect(result.status).toBe('insufficient_evidence');
+    expect(result.status).not.toBe('inconsistent');
+    expect(result.status).not.toBe('consistent');
+    expect(result.fields.find((field) => field.field === 'state')?.outcome).toBe('missing_from_left');
+  });
+
   it('uses insufficient evidence when MCA is not found', () => {
     const result = compareVerificationPair(pair({ rightStatus: 'not_found', rightSnapshot: null }));
     expect(result.status).toBe('insufficient_evidence');

@@ -28,11 +28,12 @@ describe('AppLayout', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('BharatBid')).toBeInTheDocument();
+    expect(screen.getByText('BharatBid AI')).toBeInTheDocument();
     expect(screen.getByText(/Evidence-Based Bid Evaluation/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Command Center' })).toHaveAttribute('href', '/bharatbid');
     expect(screen.getByRole('link', { name: 'Tenders' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Bids' })).toHaveAttribute('href', '/bharatbid/bids');
+    expect(screen.getByRole('link', { name: 'Reviews' })).toHaveAttribute('href', '/bharatbid/review');
     expect(screen.getByRole('link', { name: 'Notifications' })).toHaveAttribute('href', '/bharatbid/notifications');
     expect(screen.getByText('DEMO / SYNTHETIC')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();

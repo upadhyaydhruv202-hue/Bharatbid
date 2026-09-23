@@ -41,7 +41,7 @@ export const FEATURE_REGISTRY: Record<FeatureName, FeatureDefinition> = {
     name: 'otp',
     envVar: 'FEATURE_OTP',
     aliases: [],
-    default: false,
+    default: true,
     dependencies: [],
     purpose: 'Hashed one-time passcodes, OTP HTTP, and password reset',
   },

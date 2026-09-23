@@ -46,6 +46,10 @@ export interface AppConfig {
     loginRateLimitMax: number;
     loginIpRateLimitMax: number;
     loginRateLimitWindowMs: number;
+    demoAuth: boolean;
+    googleClientId?: string;
+    googleClientSecret?: string;
+    googleRedirectUri?: string;
   };
   ai: {
     enabled: boolean;
@@ -62,6 +66,7 @@ export interface AppConfig {
     enabled: boolean;
     provider: 'smtp' | 'resend' | 'brevo' | 'mock';
     from?: string;
+    fromName?: string;
     timeoutMs: number;
     smtp: {
       host?: string;
@@ -79,11 +84,16 @@ export interface AppConfig {
   };
   sms: {
     enabled: boolean;
-    provider: 'mock' | 'http';
+    provider: 'mock' | 'http' | 'msg91';
     apiKey?: string;
     from?: string;
     httpUrl?: string;
     timeoutMs: number;
+    msg91: {
+      authKey?: string;
+      templateId?: string;
+      widgetId?: string;
+    };
   };
   storage: {
     provider: 'local' | 's3' | 'postgres';
@@ -117,6 +127,27 @@ export interface AppConfig {
     passwordReset: { max: number; ipMax: number; windowMs: number };
   };
   demoMode: boolean;
+  verification: {
+    timeoutMs: number;
+    cacheTtlMs: number;
+    gst: {
+      baseUrl?: string;
+      clientId?: string;
+      clientSecret?: string;
+      productInstanceId?: string;
+      pathTemplate?: string;
+      method?: 'GET' | 'POST';
+      mode: 'sandbox' | 'live';
+    };
+    pan: {
+      baseUrl?: string;
+      clientId?: string;
+      clientSecret?: string;
+      pathTemplate?: string;
+      method?: 'GET' | 'POST';
+      mode: 'sandbox' | 'live';
+    };
+  };
   scheduler: {
     enabled: boolean;
     intervalMs: number;

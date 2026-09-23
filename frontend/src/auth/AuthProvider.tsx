@@ -8,9 +8,20 @@ import {
   type ReactNode,
 } from 'react';
 
-import { getApiErrorMessage } from '../services/api';
-import { getMe, login as loginRequest, logout as logoutRequest, refreshSession } from '../services/auth';
-import type { AuthUser } from '../types/api';
+import {
+  getApiErrorMessage,
+} from '../services/api';
+import {
+  getAuthPublicConfig,
+  getMe,
+  login as loginRequest,
+  logout as logoutRequest,
+  refreshSession,
+  requestOtp,
+  signInWithGoogle,
+  verifyOtp,
+} from '../services/auth';
+import type { AuthPublicConfig, AuthUser } from '../types/api';
 
 export const ACCESS_TOKEN_KEY = 'hsk.accessToken';
 export const REFRESH_TOKEN_KEY = 'hsk.refreshToken';
@@ -29,6 +40,22 @@ interface AuthContextValue {
   pending: boolean;
   error: string | undefined;
   login: (email: string, password: string) => Promise<boolean>;
+  loginWithOtp: (input: {
+    destination: string;
+    code: string;
+    channel: 'email' | 'sms';
+    purpose?: 'login' | 'signup';
+    displayName?: string;
+    organizationName?: string;
+    phone?: string;
+  }) => Promise<boolean>;
+  requestSignInOtp: (destination: string, channel: 'email' | 'sms', purpose?: 'login' | 'signup') => Promise<{
+    expiresInSeconds: number;
+    resendAvailableInSeconds: number;
+    digits: number;
+  }>;
+  loginWithGoogle: (credential: string, organizationName?: string) => Promise<boolean>;
+  loadPublicConfig: () => Promise<AuthPublicConfig | null>;
   logout: () => Promise<void>;
 }
 
@@ -175,6 +202,84 @@ export function AuthProvider({
     [applySession],
   );
 
+  const requestSignInOtp = useCallback(
+    async (destination: string, channel: 'email' | 'sms', purpose: 'login' | 'signup' = 'login') => {
+      setPending(true);
+      setError(undefined);
+      try {
+        return await requestOtp({ destination, channel, purpose });
+      } catch (caught) {
+        setError(getApiErrorMessage(caught, 'Unable to send a verification code'));
+        throw caught;
+      } finally {
+        setPending(false);
+      }
+    },
+    [],
+  );
+
+  const loginWithOtp = useCallback(
+    async (input: {
+      destination: string;
+      code: string;
+      channel: 'email' | 'sms';
+      purpose?: 'login' | 'signup';
+      displayName?: string;
+      organizationName?: string;
+      phone?: string;
+    }) => {
+      setPending(true);
+      setError(undefined);
+      try {
+        const payload = await verifyOtp(input);
+        const next = toSession(payload);
+        if (!next) {
+          setError('Sign in failed');
+          return false;
+        }
+        applySession(next);
+        return true;
+      } catch (caught) {
+        setError(getApiErrorMessage(caught, 'Sign in failed'));
+        return false;
+      } finally {
+        setPending(false);
+      }
+    },
+    [applySession],
+  );
+
+  const loginWithGoogle = useCallback(
+    async (credential: string, organizationName?: string) => {
+      setPending(true);
+      setError(undefined);
+      try {
+        const payload = await signInWithGoogle(credential, organizationName);
+        const next = toSession(payload);
+        if (!next) {
+          setError('Google sign in failed');
+          return false;
+        }
+        applySession(next);
+        return true;
+      } catch (caught) {
+        setError(getApiErrorMessage(caught, 'Google sign in failed'));
+        return false;
+      } finally {
+        setPending(false);
+      }
+    },
+    [applySession],
+  );
+
+  const loadPublicConfig = useCallback(async () => {
+    try {
+      return await getAuthPublicConfig();
+    } catch {
+      return null;
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     const current = session;
     setPending(true);
@@ -196,9 +301,13 @@ export function AuthProvider({
       pending,
       error,
       login,
+      loginWithOtp,
+      loginWithGoogle,
+      requestSignInOtp,
+      loadPublicConfig,
       logout,
     }),
-    [error, login, logout, pending, session],
+    [error, loadPublicConfig, login, loginWithGoogle, loginWithOtp, logout, pending, requestSignInOtp, session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -106,15 +106,15 @@ describe('ReviewDetailPage', () => {
     expect(screen.getByText('The GST legal name differs from the MCA source record.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View DEMO_GST_Certificate_Delta.txt' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /GST demo registry verification/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Record assessment' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start review' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Record assessment' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Request clarification' })).toBeInTheDocument();
     expect(screen.queryByText(/approve this bid|reject this bid|award this bid|award probability/i)).not.toBeInTheDocument();
   });
 
   it('requires a substantial officer note', async () => {
-    renderDetail(['bids.read', 'bids.write']);
-    await screen.findByText('INCONSISTENT');
-    fireEvent.change(screen.getByLabelText('Officer note'), { target: { value: 'ok' } });
+    renderDetail(['bids.read', 'bids.write'], { ...review, status: 'in_review' });
+    fireEvent.change(await screen.findByLabelText('Officer note'), { target: { value: 'ok' } });
     fireEvent.click(screen.getByRole('button', { name: 'Record assessment' }));
     expect(
       await screen.findByText('This assessment needs a written explanation of at least 20 characters.'),

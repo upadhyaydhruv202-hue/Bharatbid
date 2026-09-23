@@ -53,6 +53,7 @@ export class AuthService {
       if (role) {
         await repos.roles.assignUser(created.id, role.id);
       }
+      await repos.organizations.createPersonalWorkspace(created.id, input.displayName);
 
       const user = (await repos.users.findByIdWithRoles(created.id)) ?? {
         ...created,
@@ -98,7 +99,9 @@ export class AuthService {
       throw new AuthenticationError(INVALID_CREDENTIALS);
     }
 
-    const matches = await this.deps.passwordService.verify(input.password, record.passwordHash);
+    const matches = record.passwordHash
+      ? await this.deps.passwordService.verify(input.password, record.passwordHash)
+      : (await this.deps.passwordService.verifyUnknown(input.password), false);
     if (!matches) {
       await this.deps.audit?.record({
         actorId: record.id,
@@ -200,6 +203,13 @@ export class AuthService {
     }
 
     await this.denyAccessToken(accessToken);
+    await this.deps.audit?.record({
+      actorId: stored.userId,
+      action: AUDIT_ACTIONS.USER_LOGOUT,
+      resource: 'user',
+      resourceId: stored.userId,
+      status: 'succeeded',
+    });
     return { revoked: true };
   }
 
@@ -217,7 +227,8 @@ export class AuthService {
   }
 
   async getMe(userId: string): Promise<AuthenticatedUser> {
-    const user = await createRepositories(this.deps.prisma).users.findByIdWithRoles(userId);
+    const repos = createRepositories(this.deps.prisma);
+    const user = await repos.users.findByIdWithRoles(userId);
     if (!user) {
       throw new AuthenticationError('Authentication required');
     }
@@ -226,11 +237,18 @@ export class AuthService {
       throw new AuthorizationError('Account is disabled');
     }
 
-    return toAuthenticatedUser(user);
+    return toAuthenticatedUser(await this.withOrganizations(repos, user));
   }
 
   async hasAccount(email: string): Promise<boolean> {
     const record = await createRepositories(this.deps.prisma).users.findByEmailForAuth(email);
+    return Boolean(record);
+  }
+
+  async hasPhoneAccount(phone: string): Promise<boolean> {
+    const repos = createRepositories(this.deps.prisma);
+    const record =
+      (await repos.users.findByIdentity('mobile', phone)) ?? (await repos.users.findByPhone(phone));
     return Boolean(record);
   }
 
@@ -259,8 +277,19 @@ export class AuthService {
   }
 
   async createSessionForVerifiedEmail(email: string): Promise<AuthSession | null> {
+    return this.createSessionForVerifiedIdentity({ type: 'email', identifier: email });
+  }
+
+  async createSessionForVerifiedIdentity(input: {
+    type: 'email' | 'mobile';
+    identifier: string;
+  }): Promise<AuthSession | null> {
     const repos = createRepositories(this.deps.prisma);
-    const record = await repos.users.findByEmailForAuth(email);
+    const record =
+      input.type === 'email'
+        ? await repos.users.findByEmailForAuth(input.identifier)
+        : ((await repos.users.findByIdentity('mobile', normalizePhone(input.identifier))) ??
+          (await repos.users.findByPhone(input.identifier)));
     if (!record) {
       return null;
     }
@@ -277,12 +306,166 @@ export class AuthService {
     return (await this.issueSession(repos, user)).session;
   }
 
+  async completeVerifiedSignup(input: {
+    email?: string;
+    phone?: string;
+    displayName: string;
+    organizationName?: string;
+  }): Promise<AuthSession> {
+    const email = input.email?.trim().toLowerCase();
+    const phone = input.phone ? normalizePhone(input.phone) : undefined;
+    if (!email && !phone) {
+      throw new AuthenticationError('Invalid or expired OTP');
+    }
+
+    const session = await withTransaction(this.deps.prisma, async (tx) => {
+      const repos = createRepositories(tx);
+      const existing = email
+        ? await repos.users.findByEmailForAuth(email)
+        : await repos.users.findByPhone(phone!);
+      if (existing) {
+        if (existing.status !== 'active') {
+          assertAccountActive(existing.status);
+        }
+        if (phone && !existing.phone) {
+          await repos.users.update(existing.id, { phone });
+          await repos.users.linkIdentity(existing.id, 'mobile', phone);
+        }
+        if (email) {
+          await repos.users.linkIdentity(existing.id, 'email', email);
+        }
+        const user = (await repos.users.findByIdWithRoles(existing.id)) ?? {
+          ...existing,
+          roles: [],
+          permissions: [],
+        };
+        return (await this.issueSession(repos, user)).session;
+      }
+
+      const created = await repos.users.create({
+        email: email ?? placeholderEmailForPhone(phone!),
+        displayName: input.displayName,
+        phone: phone ?? null,
+      });
+      const role = await repos.roles.findByName(this.deps.defaultRole);
+      if (role) {
+        await repos.roles.assignUser(created.id, role.id);
+      }
+      await repos.organizations.createPersonalWorkspace(created.id, input.displayName, input.organizationName);
+      if (email) {
+        await repos.users.linkIdentity(created.id, 'email', email);
+      }
+      if (phone) {
+        await repos.users.linkIdentity(created.id, 'mobile', phone);
+      }
+      const user = (await repos.users.findByIdWithRoles(created.id)) ?? {
+        ...created,
+        roles: [],
+        permissions: [],
+      };
+      return (await this.issueSession(repos, user)).session;
+    });
+
+    await this.deps.audit?.record({
+      actorId: session.user.id,
+      action: AUDIT_ACTIONS.SIGNUP_COMPLETED,
+      resource: 'user',
+      resourceId: session.user.id,
+      metadata: { method: email ? 'email' : 'mobile' },
+      status: 'succeeded',
+    });
+    return session;
+  }
+
+  async signInWithGoogleIdentity(identity: {
+    subject: string;
+    email?: string;
+    emailVerified: boolean;
+    name?: string;
+    organizationName?: string;
+  }): Promise<AuthSession> {
+    const session = await withTransaction(this.deps.prisma, async (tx) => {
+      const repos = createRepositories(tx);
+      let record = await repos.users.findByGoogleSubject(identity.subject);
+      if (!record && identity.email && identity.emailVerified) {
+        const byEmail = await repos.users.findByEmailForAuth(identity.email);
+        if (byEmail) {
+          if (byEmail.googleSubject && byEmail.googleSubject !== identity.subject) {
+            throw new ConflictError('This Google account cannot be linked');
+          }
+          await repos.users.update(byEmail.id, { googleSubject: identity.subject });
+          record = { ...byEmail, googleSubject: identity.subject };
+        }
+      }
+
+      if (!record) {
+        if (!identity.email || !identity.emailVerified) {
+          throw new AuthenticationError('Google account email is not verified');
+        }
+        const created = await repos.users.create({
+          email: identity.email,
+          displayName: identity.name?.trim() || identity.email.split('@')[0] || 'User',
+          googleSubject: identity.subject,
+        });
+        const role = await repos.roles.findByName(this.deps.defaultRole);
+        if (role) {
+          await repos.roles.assignUser(created.id, role.id);
+        }
+        await repos.organizations.createPersonalWorkspace(
+          created.id,
+          created.displayName,
+          identity.organizationName,
+        );
+        record = {
+          ...created,
+          passwordHash: null,
+          phone: null,
+          googleSubject: identity.subject,
+        };
+      }
+
+      if (record.status !== 'active') {
+        assertAccountActive(record.status);
+      }
+
+      await repos.users.linkIdentity(record.id, 'google', identity.subject);
+      if (identity.email && identity.emailVerified) {
+        await repos.users.linkIdentity(record.id, 'email', identity.email);
+      }
+
+      const user = await repos.users.findByIdWithRoles(record.id);
+      if (!user) {
+        throw new AuthenticationError('Invalid Google credential');
+      }
+      return (await this.issueSession(repos, user)).session;
+    });
+
+    await this.deps.audit?.record({
+      actorId: session.user.id,
+      action: AUDIT_ACTIONS.LOGIN_GOOGLE_SUCCESS,
+      resource: 'user',
+      resourceId: session.user.id,
+      status: 'succeeded',
+    });
+    return session;
+  }
+
+  private async withOrganizations(repos: Repositories, user: UserWithRoles): Promise<UserWithRoles> {
+    const organizations = await repos.users.listOrganizations(user.id);
+    return {
+      ...user,
+      organizations,
+      organizationIds: organizations.map((item) => item.id),
+      currentOrganizationId: organizations.find((item) => item.isDefault)?.id ?? organizations[0]?.id ?? null,
+    };
+  }
+
   private async issueSession(
     repos: Repositories,
     user: UserWithRoles,
     familyId?: string,
   ): Promise<{ session: AuthSession; refreshTokenId: ReturnType<typeof randomUUID> }> {
-    const authUser = toAuthenticatedUser(user);
+    const authUser = toAuthenticatedUser(await this.withOrganizations(repos, user));
     const refreshId = randomUUID();
     const nextFamilyId = familyId ?? randomUUID();
     const tvn = (await this.deps.revocation?.currentAccessVersion(user.id)) ?? 0;
@@ -318,4 +501,21 @@ export class AuthService {
       },
     };
   }
+}
+
+function placeholderEmailForPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  return `m${digits}@identity.bharatbid.invalid`;
+}
+
+function normalizePhone(phone: string): string {
+  const trimmed = phone.trim();
+  if (trimmed.startsWith('+')) {
+    return `+${trimmed.slice(1).replace(/\D/g, '')}`;
+  }
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `+91${digits}`;
+  }
+  return `+${digits}`;
 }

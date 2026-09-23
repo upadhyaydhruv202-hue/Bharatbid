@@ -16,6 +16,8 @@ import {
   getTestRepositories,
   resetDatabase,
 } from './helpers/database';
+import { expireTenderWindow, openTenderSchedule, utcDateOnly } from './helpers/tender-window';
+import { shareDefaultOrganization } from './helpers/organization';
 
 const logger = pino({ level: 'silent' });
 const VALID_PASSWORD = 'correct-horse';
@@ -98,8 +100,7 @@ describeDatabase('BharatBid domain HTTP', () => {
     departmentName: 'Contracts and Procurement',
     category: 'Goods',
     status: 'OPEN',
-    issueDate: '2026-07-01',
-    closingDate: '2026-09-15',
+    ...openTenderSchedule(),
   };
 
   it('rejects unauthenticated access to tenders', async () => {
@@ -224,6 +225,115 @@ describeDatabase('BharatBid domain HTTP', () => {
     expect(duplicate.status).toBe(409);
   });
 
+  it('rejects bids after the closing date and concurrent duplicate creates', async () => {
+    const session = await officerSession();
+    const tender = await request(app).post('/api/v1/tenders').set(authHeader(session.tokens.accessToken)).send({
+      ...openTender,
+      referenceNumber: 'GEM/2026/B/TEST/DEADLINE',
+    });
+    const tenderId = tender.body.data.tender.id as string;
+    const bidder = await request(app).post('/api/v1/bidders').set(authHeader(session.tokens.accessToken)).send({
+      legalName: 'Deadline Bidder',
+    });
+    await expireTenderWindow(tenderId);
+    const late = await request(app)
+      .post(`/api/v1/tenders/${tenderId}/bids`)
+      .set(authHeader(session.tokens.accessToken))
+      .send({ bidderId: bidder.body.data.bidder.id });
+    expect(late.status).toBe(400);
+
+    const presented = await request(app)
+      .get(`/api/v1/tenders/${tenderId}`)
+      .set(authHeader(session.tokens.accessToken));
+    expect(presented.status).toBe(200);
+    expect(presented.body.data.tender.status).toBe('closed');
+    const stillOpen = await request(app)
+      .get('/api/v1/tenders')
+      .query({ status: 'open' })
+      .set(authHeader(session.tokens.accessToken));
+    expect(stillOpen.body.data.items.some((item: { id: string }) => item.id === tenderId)).toBe(false);
+
+    const openAgain = await request(app).post('/api/v1/tenders').set(authHeader(session.tokens.accessToken)).send({
+      ...openTender,
+      referenceNumber: 'GEM/2026/B/TEST/RACE',
+    });
+    const raceBidder = await request(app).post('/api/v1/bidders').set(authHeader(session.tokens.accessToken)).send({
+      legalName: 'Race Bidder',
+    });
+    const [first, second] = await Promise.all([
+      request(app)
+        .post(`/api/v1/tenders/${openAgain.body.data.tender.id}/bids`)
+        .set(authHeader(session.tokens.accessToken))
+        .send({ bidderId: raceBidder.body.data.bidder.id }),
+      request(app)
+        .post(`/api/v1/tenders/${openAgain.body.data.tender.id}/bids`)
+        .set(authHeader(session.tokens.accessToken))
+        .send({ bidderId: raceBidder.body.data.bidder.id }),
+    ]);
+    const statuses = [first.status, second.status].sort();
+    expect(statuses).toEqual([201, 409]);
+  });
+
+  it('presents GEM/2026/B/CPCL/001-shaped stored-open tenders as closed after the historical closing instant', async () => {
+    const session = await officerSession();
+    const created = await request(app)
+      .post('/api/v1/tenders')
+      .set(authHeader(session.tokens.accessToken))
+      .send({
+        ...openTender,
+        referenceNumber: 'GEM/2026/B/CPCL/001',
+        title: 'Supply of industrial valves for Manali refinery turnaround',
+        issueDate: '2026-07-01',
+        closingDate: '2026-09-15T18:30:00.000Z',
+      });
+    expect(created.status).toBe(201);
+    expect(created.body.data.tender.status).toBe('closed');
+    expect(created.body.data.tender.closingDate).toBe('2026-09-15T18:30:00.000Z');
+
+    const fetched = await request(app)
+      .get(`/api/v1/tenders/${created.body.data.tender.id}`)
+      .set(authHeader(session.tokens.accessToken));
+    expect(fetched.body.data.tender.status).toBe('closed');
+    expect(fetched.body.data.tender.closingDate).toBe('2026-09-15T18:30:00.000Z');
+
+    const closedList = await request(app)
+      .get('/api/v1/tenders')
+      .query({ status: 'closed' })
+      .set(authHeader(session.tokens.accessToken));
+    expect(closedList.body.data.items.some((item: { referenceNumber: string }) => item.referenceNumber === 'GEM/2026/B/CPCL/001')).toBe(
+      true,
+    );
+
+    const bidder = await request(app).post('/api/v1/bidders').set(authHeader(session.tokens.accessToken)).send({
+      legalName: 'Late Bidder After Close',
+    });
+    const late = await request(app)
+      .post(`/api/v1/tenders/${created.body.data.tender.id}/bids`)
+      .set(authHeader(session.tokens.accessToken))
+      .send({ bidderId: bidder.body.data.bidder.id });
+    expect(late.status).toBe(400);
+  });
+
+  it('cannot open a tender before the issue date', async () => {
+    const session = await officerSession();
+    const created = await request(app)
+      .post('/api/v1/tenders')
+      .set(authHeader(session.tokens.accessToken))
+      .send({
+        ...openTender,
+        status: 'draft',
+        referenceNumber: 'GEM/2026/B/TEST/FUTURE',
+        issueDate: utcDateOnly(10),
+        closingDate: utcDateOnly(40),
+      });
+    expect(created.status).toBe(201);
+    const opened = await request(app)
+      .post(`/api/v1/tenders/${created.body.data.tender.id}/status`)
+      .set(authHeader(session.tokens.accessToken))
+      .send({ status: 'open' });
+    expect(opened.status).toBe(400);
+  });
+
   it('returns 404 for a missing tender or bidder', async () => {
     const session = await officerSession();
     const missingTender = await request(app)
@@ -241,6 +351,7 @@ describeDatabase('BharatBid domain HTTP', () => {
     const officer = await officerSession();
     await request(app).post('/api/v1/tenders').set(authHeader(officer.tokens.accessToken)).send(openTender);
     const reviewer = await reviewerSession();
+    await shareDefaultOrganization(getTestRepositories(), officer.user.id, reviewer.user.id);
     const list = await request(app).get('/api/v1/tenders').set(authHeader(reviewer.tokens.accessToken));
     expect(list.status).toBe(200);
     const create = await request(app).post('/api/v1/tenders').set(authHeader(reviewer.tokens.accessToken)).send({
@@ -278,13 +389,21 @@ describeDatabase('BharatBid domain HTTP', () => {
 
   it('persists tender requirements and relationship counts', async () => {
     const session = await officerSession();
-    const tender = await request(app).post('/api/v1/tenders').set(authHeader(session.tokens.accessToken)).send(openTender);
+    const tender = await request(app)
+      .post('/api/v1/tenders')
+      .set(authHeader(session.tokens.accessToken))
+      .send({ ...openTender, status: 'draft', referenceNumber: 'GEM/2026/B/TEST/REQ-COUNT' });
     const requirement = await request(app)
       .post(`/api/v1/tenders/${tender.body.data.tender.id}/requirements`)
       .set(authHeader(session.tokens.accessToken))
       .send({ name: 'Valid GST registration', requirementType: 'STATUTORY', mandatory: true });
     expect(requirement.status).toBe(201);
     expect(requirement.body.data.requirement.requirementType).toBe('statutory');
+    const opened = await request(app)
+      .post(`/api/v1/tenders/${tender.body.data.tender.id}/status`)
+      .set(authHeader(session.tokens.accessToken))
+      .send({ status: 'open' });
+    expect(opened.status).toBe(200);
 
     const bidder = await request(app).post('/api/v1/bidders').set(authHeader(session.tokens.accessToken)).send({
       legalName: 'Relationship Bidder',
@@ -386,6 +505,53 @@ describeDatabase('BharatBid domain HTTP', () => {
       .set(authHeader(reviewer.tokens.accessToken))
       .send({ name: 'PAN', requirementType: 'statutory' });
     expect(requirement.status).toBe(403);
+  });
+
+  it('freezes requirement additions after publish and versions amendments', async () => {
+    const session = await officerSession();
+    const tender = await request(app)
+      .post('/api/v1/tenders')
+      .set(authHeader(session.tokens.accessToken))
+      .send({ ...openTender, status: 'draft', referenceNumber: 'GEM/2026/B/TEST/FREEZE' });
+    const created = await request(app)
+      .post(`/api/v1/tenders/${tender.body.data.tender.id}/requirements`)
+      .set(authHeader(session.tokens.accessToken))
+      .send({ name: 'GST registration', requirementType: 'statutory', mandatory: true });
+    expect(created.status).toBe(201);
+    await request(app)
+      .post(`/api/v1/tenders/${tender.body.data.tender.id}/status`)
+      .set(authHeader(session.tokens.accessToken))
+      .send({ status: 'open' });
+
+    const blocked = await request(app)
+      .post(`/api/v1/tenders/${tender.body.data.tender.id}/requirements`)
+      .set(authHeader(session.tokens.accessToken))
+      .send({ name: 'Silent extra requirement', requirementType: 'statutory' });
+    expect(blocked.status).toBe(400);
+
+    const silentEdit = await request(app)
+      .patch(`/api/v1/tenders/${tender.body.data.tender.id}/requirements/${created.body.data.requirement.id}`)
+      .set(authHeader(session.tokens.accessToken))
+      .send({ name: 'Changed GST registration' });
+    expect(silentEdit.status).toBe(400);
+
+    const amended = await request(app)
+      .post(`/api/v1/tenders/${tender.body.data.tender.id}/requirements/${created.body.data.requirement.id}/amendments`)
+      .set(authHeader(session.tokens.accessToken))
+      .send({
+        name: 'GST registration (amended)',
+        changeReason: 'Corrigendum after bidder query on GST evidence',
+      });
+    expect(amended.status).toBe(201);
+    expect(amended.body.data.requirement.version).toBe(2);
+    expect(amended.body.data.requirement.previousVersionId).toBe(created.body.data.requirement.id);
+    expect(amended.body.data.requirement.changeReason).toMatch(/Corrigendum/);
+
+    const listed = await request(app)
+      .get(`/api/v1/tenders/${tender.body.data.tender.id}/requirements`)
+      .set(authHeader(session.tokens.accessToken));
+    expect(listed.body.data.items).toHaveLength(2);
+    expect(listed.body.data.items.filter((item: { active: boolean }) => item.active)).toHaveLength(1);
   });
 
   it('searches and filters bidders without exposing list GSTIN values', async () => {

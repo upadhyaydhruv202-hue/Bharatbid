@@ -371,6 +371,24 @@ function OverviewTab({
 }) {
   return (
     <div className="space-y-6">
+      <Card>
+        <CardTitle className="mb-4">Compliance overview</CardTitle>
+        <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <Item
+            label="GST"
+            value={verifications.matched > 0 && verifications.mismatched === 0 ? 'Consistent' : verifications.mismatched > 0 ? 'Needs review' : 'Not checked'}
+          />
+          <Item
+            label="Documents"
+            value={`${documents.ready}/${documents.total || documents.ready}`}
+          />
+          <Item
+            label="Requirements"
+            value={`${intelligence.requirements.evidenceAvailable}/${intelligence.requirements.mandatory || intelligence.requirements.total}`}
+          />
+          <Item label="Review" value={reviewSummary.inReview ? 'IN REVIEW' : reviewSummary.open ? 'OPEN' : '—'} />
+        </dl>
+      </Card>
       {bid.fieldLocks.all ? (
         <Alert title="Submission locked">
           This bid is {bid.status.replace(/_/g, ' ')} and submission details cannot be edited. Document evidence can

@@ -28,6 +28,15 @@ describe('assertSafeExternalUrl', () => {
       expect(() => assertSafeExternalUrl(url), url).toThrow(ValidationError);
     }
   });
+
+  it('rejects hosts outside an explicit provider allowlist', () => {
+    expect(() =>
+      assertSafeExternalUrl('https://evil.example.com/gstin', { allowedHosts: ['dg-sandbox.setu.co'] }),
+    ).toThrow(ValidationError);
+    expect(
+      assertSafeExternalUrl('https://dg-sandbox.setu.co/gstin', { allowedHosts: ['dg-sandbox.setu.co'] }).hostname,
+    ).toBe('dg-sandbox.setu.co');
+  });
 });
 
 describe('assertHttpUrl', () => {

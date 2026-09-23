@@ -102,7 +102,7 @@ export function validateDocumentFile(
     originalFilename,
     storedFilename,
     extension: extension as DocumentExtension,
-    mimeType: input.mimetype,
+    mimeType: EXTENSION_MIME[extension as DocumentExtension],
     size: input.buffer.length,
     buffer: input.buffer,
     checksumSha256: createHash('sha256').update(input.buffer).digest('hex'),

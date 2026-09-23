@@ -5,13 +5,16 @@ import { SessionGate } from '../../auth/SessionGate';
 import { useAuth } from '../../auth/AuthProvider';
 import { hasPermission } from '../../lib/rbac';
 import { formatDateTime, StatusBadge } from '../../components/bharatbid/StatusBadge';
+import { ProviderReadinessPanel } from '../../components/bharatbid/ProviderReadinessPanel';
 import { getApiErrorMessage } from '../../services/api';
 import {
   getCommandCenter,
   listTenders,
+  listProviderCatalog,
   searchProcurement,
   type CommandCenterDashboard,
   type ProcurementSearchHit,
+  type ProviderCatalogEntry,
   type TenderListItem,
 } from '../../services/bharatbid';
 import { listNotifications as listInbox, markNotificationRead as markInboxRead } from '../../services/notifications';
@@ -86,18 +89,21 @@ export function BharatBidOverviewPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [notices, setNotices] = useState<Array<{ id: string; title: string; body: string; unread: boolean; href?: string }>>([]);
+  const [catalog, setCatalog] = useState<ProviderCatalogEntry[]>([]);
 
   async function load(token: string) {
     setLoading(true);
     setError(undefined);
     try {
-      const [dashboard, tenderList, inbox] = await Promise.all([
+      const [dashboard, tenderList, inbox, providers] = await Promise.all([
         getCommandCenter(token, tenderId ? { tenderId } : {}),
         listTenders(token, { page: 1, pageSize: 50 }),
         listInbox(token).catch(() => ({ items: [] })),
+        listProviderCatalog(token).catch(() => []),
       ]);
       setData(dashboard);
       setTenders(tenderList.items);
+      setCatalog(providers);
       setNotices(
         inbox.items.slice(0, 5).map((item) => ({
           id: item.id,
@@ -162,6 +168,9 @@ export function BharatBidOverviewPage() {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-warning">{data.demoLabel}</p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground">BharatBid</h2>
               <p className="mt-1 text-sm font-medium text-foreground">Procurement Intelligence Command Center</p>
+              <p className="mt-2 text-lg font-semibold text-foreground">
+                {greeting(clock)}, {user?.displayName ?? 'Officer'}
+              </p>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-foreground-muted">
                 Monitor tender evaluations, bidder compliance, verification status and risk across procurement workflows.
                 Government procurement officers inspect large volumes of bidder evidence. BharatBid organizes tenders
@@ -224,6 +233,25 @@ export function BharatBidOverviewPage() {
 
         {!error ? (
           <>
+            <Card className="bb-lift mb-6 border-warning/30 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-warning">Attention required</p>
+                  <p className="mt-2 text-xl font-semibold">
+                    {String(data.attention.requiringAttention).padStart(2, '0')} compliance items require action
+                  </p>
+                  <p className="mt-3 text-sm text-foreground-muted">
+                    {String(data.kpis.verificationIssues).padStart(2, '0')} evidence issues ·{' '}
+                    {String(data.kpis.pendingClarifications).padStart(2, '0')} clarification ·{' '}
+                    {String(data.kpis.openReviews).padStart(2, '0')} pending review
+                  </p>
+                </div>
+                <Link className="text-sm font-medium underline" to="/bharatbid/intelligence">
+                  Open attention
+                </Link>
+              </div>
+            </Card>
+
             <ResponsiveGrid columns={4} className="mb-8">
               {kpis.map((kpi) => (
                 <Link key={kpi.label} to={kpi.to} className="rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-info" aria-label={`${kpi.label}: ${kpi.value}. Open workspace.`}>
@@ -352,14 +380,17 @@ export function BharatBidOverviewPage() {
                             </span>
                           </div>
                           <p className="mt-1 text-xs text-foreground-muted">
-                            DEMO SOURCE · matched {counts.matched}, mismatched {counts.mismatched}, not found{' '}
-                            {counts.notFound}, error {counts.error}
+                            Run counts only — not provider LIVE status. matched {counts.matched}, mismatched{' '}
+                            {counts.mismatched}, not found {counts.notFound}, error {counts.error}
                           </p>
                         </li>
                       ))}
                     </ul>
                   </div>
                 ) : null}
+                <div className="mt-4">
+                  <ProviderReadinessPanel items={catalog} />
+                </div>
               </Card>
               <Card>
                 <CardTitle>Review workload</CardTitle>
@@ -583,4 +614,11 @@ function HealthList({
       ))}
     </ul>
   );
+}
+
+function greeting(now: Date): string {
+  const hour = now.getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
 }

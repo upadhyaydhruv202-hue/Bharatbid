@@ -112,6 +112,7 @@ export function ReviewDetailPage() {
 
   const openClarification = review?.clarifications.find((item) => item.status === 'requested');
   const mutable = canWrite && review && review.status !== 'closed';
+  const canAssess = Boolean(mutable && review.status !== 'open');
 
   return (
     <PageContainer
@@ -270,7 +271,7 @@ export function ReviewDetailPage() {
               ) : null}
             </Card>
 
-            {mutable ? (
+            {canAssess ? (
               <Card>
                 <CardTitle className="mb-3">Record officer assessment</CardTitle>
                 <form className="space-y-3" onSubmit={(event) => void onAssess(event)}>
@@ -304,9 +305,11 @@ export function ReviewDetailPage() {
               </Card>
             ) : (
               <Alert title="Read-only review">
-                {canWrite
-                  ? 'This review item is closed. Previous assessments remain visible and cannot be silently edited.'
-                  : 'Reviewers can inspect evidence, assessments, and clarifications, but cannot change the workflow.'}
+                {!canWrite
+                  ? 'Reviewers can inspect evidence, assessments, and clarifications, but cannot change the workflow.'
+                  : review?.status === 'open'
+                    ? 'Start the review before recording an assessment. This does not approve, reject, or award the bid.'
+                    : 'This review item is closed. Previous assessments remain visible and cannot be silently edited.'}
               </Alert>
             )}
 

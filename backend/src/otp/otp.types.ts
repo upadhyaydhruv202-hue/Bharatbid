@@ -1,4 +1,4 @@
-export const OTP_PURPOSES = ['login', 'verification', 'password-reset', 'generic'] as const;
+export const OTP_PURPOSES = ['login', 'signup', 'verification', 'password-reset', 'generic'] as const;
 export type OtpPurpose = (typeof OTP_PURPOSES)[number];
 
 export const OTP_CHANNELS = ['email', 'sms'] as const;

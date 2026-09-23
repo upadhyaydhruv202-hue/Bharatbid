@@ -4,7 +4,7 @@ import { ERROR_CODES } from '../constants';
 import { AppError, AuthenticationError, DatabaseError } from '../errors';
 import type { UserRepository } from '../repositories/user.repository';
 import { asyncHandler } from '../utils/async-handler';
-import { setRequestActor } from '../utils/request-context';
+import { setOrganizationScope, setRequestActor } from '../utils/request-context';
 import { assertAccountActive } from './account';
 import type { TokenRevocationStore } from './token-revocation';
 import type { TokenService } from './jwt';
@@ -74,8 +74,10 @@ export function authenticate(dependencies: AuthenticateDependencies): RequestHan
 
     assertAccountActive(record.status);
 
-    req.user = toAuthenticatedUser(record);
+    const organizations = await dependencies.users.listOrganizations(record.id);
+    req.user = toAuthenticatedUser({ ...record, organizations });
     setRequestActor(req.user.id);
+    setOrganizationScope(req.user.organizationIds, req.user.currentOrganizationId);
     next();
   });
 }

@@ -1,6 +1,11 @@
 import type { Prisma, Tender, TenderRequirement } from '@prisma/client';
 
 import { mapPrismaError } from '../lib/prisma-error';
+import {
+  assertOrganizationAccess,
+  getOrganizationScope,
+  tenantOrganizationWhere,
+} from '../problem/organization-scope';
 import { parsePagination, parseSort, toPaginatedResult, type PaginatedResult } from './query';
 import type { DbClient } from './types';
 import type { TenderListQuery } from '../problem/schemas';
@@ -16,6 +21,7 @@ export interface CreateTenderRecord {
   status: TenderStatusName;
   issueDate: Date;
   closingDate: Date;
+  organizationId: string;
   createdById?: string | null;
 }
 
@@ -68,6 +74,7 @@ export class TenderRepository {
     try {
       return await this.db.tender.create({
         data: {
+          organizationId: input.organizationId,
           referenceNumber: input.referenceNumber,
           title: input.title,
           description: input.description ?? null,
@@ -87,7 +94,7 @@ export class TenderRepository {
 
   async findById(id: string): Promise<TenderDetailRecord | null> {
     try {
-      return await this.db.tender.findUnique({
+      const tender = await this.db.tender.findUnique({
         where: { id },
         include: {
           requirements: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
@@ -95,6 +102,15 @@ export class TenderRepository {
           _count: { select: { bids: true, requirements: true } },
         },
       });
+      if (!tender) {
+        return null;
+      }
+      try {
+        assertOrganizationAccess(tender.organizationId, getOrganizationScope());
+      } catch {
+        return null;
+      }
+      return tender;
     } catch (error) {
       mapPrismaError(error);
     }
@@ -121,22 +137,35 @@ export class TenderRepository {
       'desc',
     );
     const search = query.q ?? query.search;
-    const where: Prisma.TenderWhereInput = {};
+    const where: Prisma.TenderWhereInput = { ...tenantOrganizationWhere() };
+    const now = new Date();
+    const filters: Prisma.TenderWhereInput[] = [];
 
-    if (query.status) {
-      where.status = query.status;
+    if (query.status === 'open') {
+      filters.push({ status: 'open', closingDate: { gt: now } });
+    } else if (query.status === 'closed') {
+      filters.push({
+        OR: [{ status: 'closed' }, { status: 'open', closingDate: { lte: now } }],
+      });
+    } else if (query.status) {
+      filters.push({ status: query.status });
     }
     if (query.category) {
       const category = normalizeTenderCategory(query.category) ?? query.category;
       where.category = { equals: category, mode: 'insensitive' };
     }
     if (search) {
-      where.OR = [
-        { referenceNumber: { contains: search, mode: 'insensitive' } },
-        { title: { contains: search, mode: 'insensitive' } },
-        { organizationName: { contains: search, mode: 'insensitive' } },
-        { category: { contains: search, mode: 'insensitive' } },
-      ];
+      filters.push({
+        OR: [
+          { referenceNumber: { contains: search, mode: 'insensitive' } },
+          { title: { contains: search, mode: 'insensitive' } },
+          { organizationName: { contains: search, mode: 'insensitive' } },
+          { category: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+    if (filters.length > 0) {
+      where.AND = filters;
     }
 
     try {
@@ -158,7 +187,17 @@ export class TenderRepository {
 
   async countByStatus(status: TenderStatusName): Promise<number> {
     try {
-      return await this.db.tender.count({ where: { status } });
+      return await this.db.tender.count({ where: { status, ...tenantOrganizationWhere() } });
+    } catch (error) {
+      mapPrismaError(error);
+    }
+  }
+
+  async countCurrentlyOpen(): Promise<number> {
+    try {
+      return await this.db.tender.count({
+        where: { status: 'open', closingDate: { gt: new Date() }, ...tenantOrganizationWhere() },
+      });
     } catch (error) {
       mapPrismaError(error);
     }
@@ -166,7 +205,7 @@ export class TenderRepository {
 
   async countAll(): Promise<number> {
     try {
-      return await this.db.tender.count();
+      return await this.db.tender.count({ where: tenantOrganizationWhere() ?? {} });
     } catch (error) {
       mapPrismaError(error);
     }

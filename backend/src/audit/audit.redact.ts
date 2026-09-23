@@ -29,6 +29,13 @@ const SENSITIVE_KEY_PARTS = new Set([
   'storagekey',
   'identifiervalue',
   'sourcesnapshot',
+  'email',
+  'contactemail',
+  'aadhaar',
+  'aadhar',
+  'authkey',
+  'smtp_password',
+  'smtppassword',
 ]);
 
 export function redactAuditValue(value: unknown): unknown {

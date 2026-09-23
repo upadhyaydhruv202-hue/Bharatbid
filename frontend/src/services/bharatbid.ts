@@ -55,6 +55,14 @@ export interface TenderRequirement {
   mandatory: boolean;
   active: boolean;
   sortOrder: number;
+  version?: number;
+  groupId?: string;
+  previousVersionId?: string | null;
+  changeReason?: string | null;
+  createdById?: string | null;
+  effectiveAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface TenderStatusAction {
@@ -367,7 +375,8 @@ export interface BidDocumentListResult {
   meta: PageMeta;
 }
 
-export const EXTRACTION_ADVISORY = 'Machine-extracted information. Not independently verified.';
+export const EXTRACTION_ADVISORY =
+  'OCR EXTRACTED / machine-extracted candidate text only. Not GOVERNMENT VERIFIED. Official verification requires an authorized provider lookup.';
 
 export const DEMO_SOURCE_ADVISORY =
   'Demo source — simulated verification data. Not an official government response.';
@@ -406,6 +415,20 @@ export interface VerificationSourceView {
   mode: VerificationSourceMode | string;
   availability: string;
   supportedIdentifierTypes: string[];
+  advisory: string;
+}
+
+export interface ProviderCatalogEntry {
+  source: string;
+  module: string;
+  authority: string;
+  selectedProvider: string;
+  classification: string;
+  status: string;
+  configured: boolean;
+  realTime: boolean;
+  sandbox: boolean;
+  mode: string;
   advisory: string;
 }
 
@@ -455,6 +478,13 @@ export interface VerificationListItem {
   status: string;
   requestedAt: string;
   completedAt: string | null;
+  verifiedAt?: string | null;
+  retrievedAt?: string | null;
+  cacheAgeSeconds?: number | null;
+  expiresAt?: string | null;
+  servedFromCache?: boolean;
+  freshness?: 'live' | 'cached' | 'sandbox' | 'demo' | 'manual';
+  provider?: string;
 }
 
 export interface VerificationDetail extends VerificationListItem {
@@ -569,6 +599,24 @@ export async function updateTenderStatus(id: string, status: TenderStatus, token
 export async function listTenderActivity(id: string, token: string) {
   const result = await apiGet<{ items: TenderActivityItem[] }>(`/api/v1/tenders/${id}/activity`, token);
   return result.items;
+}
+
+export async function amendTenderRequirement(
+  tenderId: string,
+  id: string,
+  input: Partial<{
+    name: string;
+    description: string | null;
+    requirementType: RequirementType;
+    mandatory: boolean;
+  }> & { changeReason: string },
+  token: string,
+) {
+  const result = await apiRequest<{ requirement: TenderRequirement }>(
+    `/api/v1/tenders/${tenderId}/requirements/${id}/amendments`,
+    { method: 'POST', token, body: input },
+  );
+  return result.requirement;
 }
 
 export async function createTenderRequirement(
@@ -763,8 +811,19 @@ export async function downloadBidDocument(
 }
 
 export async function listVerificationSources(token: string) {
-  const result = await apiGet<{ items: VerificationSourceView[] }>('/api/v1/verification-sources', token);
+  const result = await apiGet<{ items: VerificationSourceView[]; catalog?: ProviderCatalogEntry[] }>(
+    '/api/v1/verification-sources',
+    token,
+  );
   return result.items;
+}
+
+export async function listProviderCatalog(token: string) {
+  const result = await apiGet<{ items: VerificationSourceView[]; catalog?: ProviderCatalogEntry[] }>(
+    '/api/v1/verification-sources',
+    token,
+  );
+  return result.catalog ?? [];
 }
 
 export async function listBidVerifications(bidId: string, token: string, query: Record<string, QueryValue> = {}) {
@@ -796,6 +855,7 @@ export async function createBidVerification(
     identifierType: string;
     identifier?: string;
     documentId?: string;
+    force?: boolean;
   },
   token: string,
 ) {

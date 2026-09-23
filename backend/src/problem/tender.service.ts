@@ -1,5 +1,6 @@
 import type { AuditService } from '../audit/audit.service';
 import { AUDIT_ACTIONS } from '../constants';
+import { requireCurrentOrganizationId } from './organization-scope';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import type { AuditRepository } from '../repositories/audit.repository';
 import type { BidSubmissionRepository } from '../repositories/bid-submission.repository';
@@ -24,7 +25,15 @@ import {
   type TenderListItem,
   type TenderRequirementView,
 } from './serialize';
-import { assertTenderStatusTransition, isTerminalTenderStatus, TENDER_STATUS_ACTIONS } from './transitions';
+import {
+  allowedTenderStatusActions,
+  assertRequirementsAmendable,
+  assertRequirementsMutable,
+  assertTenderMayOpen,
+  assertTenderStatusTransition,
+  assertEvaluationMayBegin,
+  isTerminalTenderStatus,
+} from './transitions';
 import { BHARATBID_AUDIT_RESOURCES, type TenderStatusName } from './types';
 
 export interface TenderServiceOptions {
@@ -59,14 +68,29 @@ export class TenderService {
     return toTenderDetail(tender, {
       bidSummary,
       fieldLocks: this.fieldLocks(tender.status, tender._count.bids, submittedCount),
-      allowedStatusActions: [...TENDER_STATUS_ACTIONS[tender.status]],
+      allowedStatusActions: allowedTenderStatusActions(tender),
     });
   }
 
   async create(input: CreateTenderBody, actorId?: string): Promise<TenderDetail> {
     const status = input.status ?? 'draft';
+    if (status === 'open') {
+      assertTenderMayOpen({ issueDate: input.issueDate });
+    }
+    if (status !== 'draft' && status !== 'open') {
+      throw new ValidationError('Tenders must be created as draft or open', [
+        { path: 'status', message: 'Create the tender as a draft (or open if the issue date has been reached), then follow the lifecycle', code: 'custom' },
+      ]);
+    }
     try {
+      const organizationId = requireCurrentOrganizationId();
+      if (!organizationId) {
+        throw new ValidationError('Organization context is required', [
+          { path: 'organizationId', message: 'Join an organization before creating a tender', code: 'custom' },
+        ]);
+      }
       const created = await this.options.tenders.create({
+        organizationId,
         referenceNumber: input.referenceNumber.trim(),
         title: input.title.trim(),
         description: input.description?.trim() || null,
@@ -145,6 +169,12 @@ export class TenderService {
   async updateStatus(id: string, status: TenderStatusName, actorId?: string): Promise<TenderDetail> {
     const existing = await this.requireTender(id);
     assertTenderStatusTransition(existing.status, status);
+    if (status === 'open') {
+      assertTenderMayOpen(existing);
+    }
+    if (status === 'under_evaluation') {
+      assertEvaluationMayBegin({ ...existing, status: existing.status });
+    }
     await this.options.tenders.update(id, { status });
     await this.options.audit?.record({
       actorId,
@@ -181,6 +211,7 @@ export class TenderService {
         { path: 'tenderId', message: `Tenders in ${tender.status} status cannot gain new requirements`, code: 'custom' },
       ]);
     }
+    assertRequirementsMutable(tender.status);
     const sortOrder = input.sortOrder ?? (await this.options.requirements.nextSortOrder(tenderId));
     const created = await this.options.requirements.create({
       tenderId,
@@ -190,6 +221,7 @@ export class TenderService {
       mandatory: input.mandatory ?? true,
       active: input.active ?? true,
       sortOrder,
+      createdById: actorId ?? null,
     });
     await this.options.audit?.record({
       actorId,
@@ -226,15 +258,16 @@ export class TenderService {
         { path: 'tenderId', message: `Tenders in ${tender.status} status cannot change requirements`, code: 'custom' },
       ]);
     }
+    assertRequirementsMutable(tender.status);
     const existing = await this.options.requirements.findById(requirementId);
     if (!existing || existing.tenderId !== tenderId) {
       throw new NotFoundError('Tender requirement not found');
     }
     const submittedCount = (await this.options.bids?.countNonDraftBids(tenderId)) ?? 0;
     const locks = this.fieldLocks(tender.status, tender._count.bids, submittedCount);
-    if (locks.requirementCore && (input.requirementType !== undefined || input.mandatory !== undefined)) {
-      throw new ValidationError('Mandatory flag and type are locked after bids have been submitted', [
-        { path: 'mandatory', message: 'Core requirement configuration cannot change after bid submission', code: 'custom' },
+    if (locks.requirementCore && (input.requirementType !== undefined || input.mandatory !== undefined || input.name !== undefined || input.description !== undefined)) {
+      throw new ValidationError('Requirement text and core fields are locked after the tender is published', [
+        { path: 'name', message: 'Add a new requirement instead of changing one bidders already rely on', code: 'custom' },
       ]);
     }
     const updated = await this.options.requirements.update(requirementId, {
@@ -258,6 +291,61 @@ export class TenderService {
     return toTenderRequirementView(updated);
   }
 
+  async amendRequirement(
+    tenderId: string,
+    requirementId: string,
+    input: {
+      name?: string;
+      description?: string | null;
+      requirementType?: TenderRequirementView['requirementType'];
+      mandatory?: boolean;
+      changeReason: string;
+    },
+    actorId?: string,
+  ): Promise<TenderRequirementView> {
+    const tender = await this.requireTender(tenderId);
+    assertRequirementsAmendable(tender);
+    const existing = await this.options.requirements.findById(requirementId);
+    if (!existing || existing.tenderId !== tenderId) {
+      throw new NotFoundError('Tender requirement not found');
+    }
+    if (!existing.active) {
+      throw new ValidationError('Only the current requirement version can be amended', [
+        { path: 'id', message: 'Historical requirement versions are immutable', code: 'custom' },
+      ]);
+    }
+    const reason = input.changeReason.trim();
+    if (reason.length < 8) {
+      throw new ValidationError('A change reason is required for amendments', [
+        { path: 'changeReason', message: 'Explain why this published requirement is changing', code: 'custom' },
+      ]);
+    }
+    const existingRow = existing as typeof existing & { version?: number; groupId?: string };
+    const created = await this.options.requirements.amend(existing, {
+      name: (input.name ?? existing.name).trim(),
+      description: input.description === undefined ? existing.description : input.description?.trim() || null,
+      requirementType: input.requirementType ?? existing.requirementType,
+      mandatory: input.mandatory ?? existing.mandatory,
+      changeReason: reason,
+      createdById: actorId ?? null,
+    });
+    await this.options.audit?.record({
+      actorId,
+      action: AUDIT_ACTIONS.TENDER_REQUIREMENT_AMENDED,
+      resource: BHARATBID_AUDIT_RESOURCES.TENDER_REQUIREMENT,
+      resourceId: tenderId,
+      metadata: {
+        tenderId,
+        requirementId: created.id,
+        previousVersionId: existing.id,
+        version: (created as typeof created & { version?: number }).version ?? (existingRow.version ?? 1) + 1,
+        changeReason: reason,
+      },
+      status: 'succeeded',
+    });
+    return toTenderRequirementView(created);
+  }
+
   async setRequirementActive(
     tenderId: string,
     requirementId: string,
@@ -279,6 +367,7 @@ export class TenderService {
         { path: 'tenderId', message: `Tenders in ${tender.status} status cannot reorder requirements`, code: 'custom' },
       ]);
     }
+    assertRequirementsMutable(tender.status);
     const items = await this.options.requirements.listByTender(tenderId);
     const index = items.findIndex((item) => item.id === requirementId);
     if (index < 0) {
@@ -326,17 +415,17 @@ export class TenderService {
   }> {
     const [tenderCount, openTenderCount, underEvaluationCount] = await Promise.all([
       this.options.tenders.countAll(),
-      this.options.tenders.countByStatus('open'),
+      this.options.tenders.countCurrentlyOpen(),
       this.options.tenders.countByStatus('under_evaluation'),
     ]);
     return { tenderCount, openTenderCount, underEvaluationCount };
   }
 
-  private fieldLocks(status: TenderStatusName, bidCount: number, submittedCount: number): TenderFieldLocks {
+  private fieldLocks(status: TenderStatusName, bidCount: number, _submittedCount: number): TenderFieldLocks {
     return {
       all: isTerminalTenderStatus(status),
       closingDate: status !== 'draft' && bidCount > 0,
-      requirementCore: status !== 'draft' && submittedCount > 0,
+      requirementCore: status !== 'draft',
     };
   }
 

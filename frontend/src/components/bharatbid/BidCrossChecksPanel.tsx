@@ -297,12 +297,10 @@ function Meta({ label, value }: { label: string; value: string | null | undefine
 }
 
 function fieldLabel(outcome: CrossFieldComparison['outcome']): string {
-  if (outcome === 'exact_match') return 'Exact match';
-  if (outcome === 'normalized_match') return 'Normalized match';
-  if (outcome === 'difference') return 'Difference';
-  if (outcome === 'missing_from_left') return 'Missing from first source';
-  if (outcome === 'missing_from_right') return 'Missing from second source';
-  return 'Not comparable';
+  if (outcome === 'exact_match' || outcome === 'normalized_match') return 'CONSISTENT';
+  if (outcome === 'difference') return 'MISMATCH';
+  if (outcome === 'missing_from_left' || outcome === 'missing_from_right') return 'INSUFFICIENT EVIDENCE';
+  return 'NOT CHECKED';
 }
 
 function fieldTone(outcome: CrossFieldComparison['outcome']): 'success' | 'warning' | 'info' | 'neutral' {

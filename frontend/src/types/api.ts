@@ -24,6 +24,9 @@ export interface AuthUser {
   role: string;
   roles: string[];
   permissions: string[];
+  organizationIds?: string[];
+  currentOrganizationId?: string | null;
+  organizations?: Array<{ id: string; name: string; slug: string; isDefault: boolean }>;
 }
 
 export interface AuthTokens {
@@ -36,6 +39,26 @@ export interface AuthTokens {
 export interface AuthSessionPayload {
   user: AuthUser;
   tokens: AuthTokens;
+  verified?: boolean;
+}
+
+export interface AuthPublicConfig {
+  googleClientId: string | null;
+  googleEnabled: boolean;
+  demoAuth: boolean;
+  otpEnabled: boolean;
+  emailOtpConfigured: boolean;
+  mobileOtpConfigured: boolean;
+  passwordLogin: boolean;
+}
+
+export interface OtpChallenge {
+  destination: string;
+  channel: 'email' | 'sms';
+  purpose: string;
+  expiresInSeconds: number;
+  resendAvailableInSeconds: number;
+  digits: number;
 }
 
 export interface FeatureFlagsData {

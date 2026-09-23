@@ -12,6 +12,7 @@ export interface RequirementFormValue {
   mandatory: boolean;
   active: boolean;
   sortOrder: string;
+  changeReason: string;
 }
 
 const EMPTY: RequirementFormValue = {
@@ -21,6 +22,7 @@ const EMPTY: RequirementFormValue = {
   mandatory: true,
   active: true,
   sortOrder: '',
+  changeReason: '',
 };
 
 export function RequirementEditor({
@@ -28,6 +30,7 @@ export function RequirementEditor({
   title,
   initial,
   lockCore = false,
+  amendMode = false,
   loading = false,
   error,
   onClose,
@@ -37,6 +40,7 @@ export function RequirementEditor({
   title: string;
   initial?: TenderRequirement | null;
   lockCore?: boolean;
+  amendMode?: boolean;
   loading?: boolean;
   error?: string;
   onClose: () => void;
@@ -56,6 +60,7 @@ export function RequirementEditor({
         mandatory: initial.mandatory,
         active: initial.active,
         sortOrder: String(initial.sortOrder),
+        changeReason: '',
       });
     } else {
       setForm(EMPTY);
@@ -80,7 +85,7 @@ export function RequirementEditor({
             Cancel
           </Button>
           <Button type="submit" form="requirement-editor-form" loading={loading}>
-            Save requirement
+            {amendMode ? 'Record amendment' : 'Save requirement'}
           </Button>
         </>
       }
@@ -138,9 +143,25 @@ export function RequirementEditor({
           checked={form.active}
           onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))}
         />
+        {amendMode ? (
+          <Input
+            className="md:col-span-2"
+            label="Change reason"
+            value={form.changeReason}
+            required
+            hint="Amendments keep the previous version. They do not silently rewrite published requirements."
+            onChange={(event) => setForm((current) => ({ ...current, changeReason: event.target.value }))}
+          />
+        ) : null}
         {lockCore ? (
           <p className="md:col-span-2 text-xs text-foreground-muted">
             Type and mandatory flag are locked because bids have already been submitted.
+          </p>
+        ) : null}
+        {amendMode ? (
+          <p className="md:col-span-2 text-xs text-foreground-muted">
+            Published requirements are frozen. This creates a new version with version, createdBy, createdAt,
+            effectiveAt, changeReason, and previousVersion.
           </p>
         ) : null}
       </form>

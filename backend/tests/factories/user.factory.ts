@@ -32,6 +32,9 @@ export interface BuildActorInput {
   role?: string;
   roles?: string[];
   permissions?: string[];
+  organizationIds?: string[];
+  currentOrganizationId?: string | null;
+  organizations?: AuthenticatedUser['organizations'];
 }
 
 export function buildUser(overrides: BuildUserInput = {}): BuiltUser {
@@ -55,17 +58,22 @@ export function buildActor(overrides: BuildActorInput = {}): AuthenticatedUser {
     role: overrides.role ?? roles[0] ?? ROLES.USER,
     roles,
     permissions: overrides.permissions ?? [],
+    organizationIds: overrides.organizationIds ?? [],
+    currentOrganizationId: overrides.currentOrganizationId ?? null,
+    organizations: overrides.organizations ?? [],
   };
 }
 
 export async function createUser(repos: Repositories, overrides: BuildUserInput = {}): Promise<PublicUser> {
   const built = buildUser(overrides);
-  return repos.users.create({
+  const user = await repos.users.create({
     email: built.email,
     displayName: built.displayName,
     passwordHash: built.passwordHash,
     status: built.status,
   });
+  await repos.organizations.createPersonalWorkspace(user.id, user.displayName);
+  return user;
 }
 
 export async function createUserWithRole(

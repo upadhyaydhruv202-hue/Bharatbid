@@ -55,7 +55,7 @@ describe('loadConfig', () => {
     expect(config.email.provider).toBe('smtp');
     expect(config.email.timeoutMs).toBe(10_000);
     expect(config.otp.digits).toBe(6);
-    expect(config.otp.ttlMs).toBe(10 * 60_000);
+    expect(config.otp.ttlMs).toBe(5 * 60_000);
     expect(config.otp.maxAttempts).toBe(5);
     expect(config.otp.resendCooldownMs).toBe(60_000);
     expect(config.otp.provider).toBe('auto');

@@ -161,6 +161,52 @@
   }
 }
 
+.bb-auth-shell {
+  min-height: calc(100vh - 4rem);
+}
+
+.bb-depth-scene {
+  perspective: 900px;
+}
+
+.bb-depth-scene__stage {
+  position: relative;
+  min-height: 22rem;
+  transform-style: preserve-3d;
+}
+
+.bb-depth-card {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  border-radius: 1rem;
+  border: 1px solid rgb(var(--hsk-edge));
+  background: rgb(var(--hsk-surface-elevated));
+  box-shadow: 0 18px 40px rgb(17 28 46 / 0.08);
+  padding: 1.1rem 1.25rem;
+  transform-style: preserve-3d;
+}
+
+.bb-depth-card__kicker {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(var(--hsk-foreground-muted));
+}
+
+.bb-depth-card__title {
+  margin-top: 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: rgb(var(--hsk-foreground));
+}
+
+.bb-depth-card--1 { top: 0.5rem; transform: translate3d(0, 0, 12px) rotateX(8deg); }
+.bb-depth-card--2 { top: 4.6rem; transform: translate3d(10px, 0, 28px) rotateX(8deg); }
+.bb-depth-card--3 { top: 8.7rem; transform: translate3d(20px, 0, 44px) rotateX(8deg); }
+.bb-depth-card--4 { top: 12.8rem; transform: translate3d(30px, 0, 60px) rotateX(8deg); }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -168,5 +214,12 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .bb-depth-card--1,
+  .bb-depth-card--2,
+  .bb-depth-card--3,
+  .bb-depth-card--4 {
+    transform: none;
   }
 }

@@ -41,7 +41,7 @@ const documentDetail: BidDocumentDetail = {
   extractedAt: '2026-08-12T11:01:00.000Z',
   extractionEngine: 'bharatbid-text-extract',
   extractionError: null,
-  extractionAdvisory: 'Machine-extracted information. Not independently verified.',
+  extractionAdvisory: 'OCR EXTRACTED / machine-extracted candidate text only. Not GOVERNMENT VERIFIED. Official verification requires an authorized provider lookup.',
   versions: [
     { id: 'doc0', versionNumber: 1, status: 'archived', createdAt: '2026-08-10T09:00:00.000Z', isCurrent: false },
     { id: 'doc1', versionNumber: 2, status: 'ready', createdAt: '2026-08-12T11:00:00.000Z', isCurrent: true },
@@ -207,7 +207,7 @@ describe('BidDocumentsPanel', () => {
     stubDocumentsApi();
     renderPanel();
     fireEvent.click(await screen.findByRole('button', { name: 'View' }));
-    expect(await screen.findByText('Machine-extracted information. Not independently verified.')).toBeInTheDocument();
+    expect((await screen.findAllByText(/not government verified/i)).length).toBeGreaterThan(0);
     expect(screen.getByText(/Extracted GSTIN placeholder/)).toBeInTheDocument();
     expect(screen.getByText('v1 — archived')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Verify GSTIN' })).toBeInTheDocument();

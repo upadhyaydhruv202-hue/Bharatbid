@@ -341,7 +341,11 @@ export function EvaluationWorkspacePage() {
                       bids={bids}
                       render={(bid) => <StatusBadge kind="readiness" value={bid.readiness} />}
                     />
-                    <ComparisonRow label="Financial amount" bids={bids} render={() => comparison.financialUnavailableReason} />
+                    <ComparisonRow
+                      label="Financial evaluation"
+                      bids={bids}
+                      render={() => 'NOT_AVAILABLE'}
+                    />
                     <ComparisonRow
                       label="Officer decision"
                       bids={bids}

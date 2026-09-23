@@ -15,6 +15,9 @@ import {
   getTestRepositories,
   resetDatabase,
 } from './helpers/database';
+import { createOpenTenderWithRequirements } from './helpers/tender-setup';
+import { expireTenderWindow } from './helpers/tender-window';
+import { shareDefaultOrganization } from './helpers/organization';
 
 const logger = pino({ level: 'silent' });
 const VALID_PASSWORD = 'correct-horse';
@@ -88,23 +91,20 @@ describeDatabase('BharatBid evaluation HTTP', () => {
     return session;
   }
 
-  async function createSubmittedTender(token: string, bidderCount = 2) {
-    const tender = await request(app).post('/api/v1/tenders').set(authHeader(token)).send({
-      referenceNumber: `GEM/2026/B/EVAL/${Date.now()}-${Math.floor(Math.random() * 10_000)}`,
-      title: 'Evaluation comparison tender',
-      organizationName: 'Chennai Petroleum Corporation Limited',
-      departmentName: 'Contracts and Procurement',
-      category: 'Goods',
-      status: 'OPEN',
-      issueDate: '2026-07-01',
-      closingDate: '2026-09-15',
-    });
-    expect(tender.status).toBe(201);
-    const tenderId = tender.body.data.tender.id as string;
-    await request(app)
-      .post(`/api/v1/tenders/${tenderId}/requirements`)
-      .set(authHeader(token))
-      .send({ name: 'GST registration', requirementType: 'statutory', mandatory: true });
+  async function createSubmittedTender(token: string, bidderCount = 2, closeWindow = true) {
+    const published = await createOpenTenderWithRequirements(
+      app,
+      token,
+      {
+        referenceNumber: `GEM/2026/B/EVAL/${Date.now()}-${Math.floor(Math.random() * 10_000)}`,
+        title: 'Evaluation comparison tender',
+        organizationName: 'Chennai Petroleum Corporation Limited',
+        departmentName: 'Contracts and Procurement',
+        category: 'Goods',
+      },
+      [{ name: 'GST registration', requirementType: 'statutory', mandatory: true }],
+    );
+    const tenderId = published.tenderId;
     const bidIds: string[] = [];
     for (let index = 0; index < bidderCount; index += 1) {
       const bidder = await request(app).post('/api/v1/bidders').set(authHeader(token)).send({
@@ -122,8 +122,21 @@ describeDatabase('BharatBid evaluation HTTP', () => {
       expect(submitted.status).toBe(200);
       bidIds.push(bid.body.data.bid.id as string);
     }
+    if (closeWindow) {
+      await expireTenderWindow(tenderId);
+    }
     return { tenderId, bidIds };
   }
+
+  it('rejects evaluation before the closing date', async () => {
+    const session = await officerSession();
+    const { tenderId } = await createSubmittedTender(session.tokens.accessToken, 1, false);
+    const tooSoon = await request(app)
+      .post('/api/v1/evaluations')
+      .set(authHeader(session.tokens.accessToken))
+      .send({ tenderId });
+    expect(tooSoon.status).toBe(400);
+  });
 
   it('creates an evaluation, compares bids, and records immutable officer notes and decisions', async () => {
     const session = await officerSession();
@@ -142,6 +155,7 @@ describeDatabase('BharatBid evaluation HTTP', () => {
     expect(evaluation.status).toBe(201);
     const evaluationId = evaluation.body.data.evaluation.id as string;
     expect(evaluation.body.data.evaluation.status).toBe('not_started');
+    expect(evaluation.body.data.evaluation.tender.status).toBe('closed');
 
     const noteTooSoon = await request(app)
       .post(`/api/v1/evaluations/${evaluationId}/notes`)
@@ -230,6 +244,7 @@ describeDatabase('BharatBid evaluation HTTP', () => {
   it('rejects reviewer mutations and cross-tender bid mixing', async () => {
     const officer = await officerSession();
     const reviewer = await reviewerSession();
+    await shareDefaultOrganization(getTestRepositories(), officer.user.id, reviewer.user.id);
     const first = await createSubmittedTender(officer.tokens.accessToken, 1);
     const second = await createSubmittedTender(officer.tokens.accessToken, 1);
 

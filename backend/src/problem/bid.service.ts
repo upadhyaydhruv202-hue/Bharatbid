@@ -17,7 +17,7 @@ import {
   type BidListItem,
   type TenderActivityItem,
 } from './serialize';
-import { assertBidStatusTransition, canAcceptBids } from './transitions';
+import { assertBidStatusTransition, assertWithinBidWindow } from './transitions';
 import { BHARATBID_AUDIT_RESOURCES, type BidSubmissionStatusName } from './types';
 
 export class BidSubmissionService {
@@ -51,11 +51,7 @@ export class BidSubmissionService {
     if (!tender) {
       throw new NotFoundError('Tender not found');
     }
-    if (!canAcceptBids(tender.status)) {
-      throw new ValidationError('Bids can only be created for open tenders', [
-        { path: 'tenderId', message: `Tender is ${tender.status} and is not accepting bids`, code: 'custom' },
-      ]);
-    }
+    assertWithinBidWindow(tender);
 
     const bidder = await this.bidders.findById(input.bidderId);
     if (!bidder) {
@@ -135,11 +131,7 @@ export class BidSubmissionService {
     if (!tender) {
       throw new NotFoundError('Tender not found');
     }
-    if (!canAcceptBids(tender.status)) {
-      throw new ValidationError('Bids can only be submitted while the tender is open', [
-        { path: 'tenderId', message: `Tender is ${tender.status} and is not accepting bids`, code: 'custom' },
-      ]);
-    }
+    assertWithinBidWindow(tender);
     await this.bids.update(id, { status: 'submitted', submittedAt: new Date() });
     await this.audit?.record({
       actorId,

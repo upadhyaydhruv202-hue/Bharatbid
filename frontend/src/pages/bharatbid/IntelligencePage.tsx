@@ -137,8 +137,8 @@ export function IntelligencePage() {
       breadcrumb={
         <Breadcrumb items={[{ label: 'Command Center', to: '/bharatbid' }, { label: 'Officer Review Priority' }]} />
       }
-      title="Officer Review Priority"
-      description="Prioritize which bids need human review first, and why. This is not a fraud, eligibility, winner, or award score."
+      title="Attention"
+      description="What requires officer attention right now. This is not a fraud, eligibility, winner, or award score."
     >
       <SessionGate title="Sign in to view attention intelligence">
         <Alert title="Decision-support only">{dashboard.advisory}</Alert>
@@ -259,8 +259,24 @@ export function IntelligencePage() {
               onRowClick={(row) => navigate(`/bharatbid/bids/${row.id}/intelligence`)}
               columns={[
                 { id: 'submissionReference', header: 'Bid', accessor: (row) => row.submissionReference },
-                { id: 'tenderReference', header: 'Tender', accessor: (row) => row.tenderReference },
+                {
+                  id: 'problem',
+                  header: 'Problem',
+                  accessor: (row) => row.bandLabel,
+                },
+                {
+                  id: 'why',
+                  header: 'Why it matters',
+                  accessor: (row) =>
+                    `${row.openIssues} open issue(s). Evidence coverage ${row.evidenceCoveragePercent === null ? 'unknown' : `${row.evidenceCoveragePercent}%`}.`,
+                },
                 { id: 'bidderLegalName', header: 'Bidder', accessor: (row) => row.bidderLegalName },
+                { id: 'tenderReference', header: 'Tender', accessor: (row) => row.tenderReference },
+                {
+                  id: 'action',
+                  header: 'Recommended officer action',
+                  accessor: () => 'Inspect evidence, verification, and complete officer review. Do not award or reject automatically.',
+                },
                 {
                   id: 'score',
                   header: 'Attention score',

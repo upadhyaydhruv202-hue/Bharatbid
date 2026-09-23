@@ -32,6 +32,20 @@ describe('Auth HTTP (no database)', () => {
     logger,
   }).app;
 
+  it('exposes public auth config without secrets', async () => {
+    const response = await request(app).get('/api/v1/auth/public-config');
+    expect(response.status).toBe(200);
+    expect(response.body.data.googleEnabled).toBe(false);
+    expect(response.body.data).not.toHaveProperty('googleClientSecret');
+    expect(JSON.stringify(response.body)).not.toMatch(/GOOGLE_CLIENT_SECRET|MSG91_AUTH_KEY|SMTP_PASSWORD/i);
+  });
+
+  it('rejects an invalid Google credential', async () => {
+    const response = await request(app).post('/api/v1/auth/google').send({ credential: 'not-a-google-token' });
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(JSON.stringify(response.body)).not.toContain('not-a-google-token');
+  });
+
   it('rejects a protected endpoint without a bearer token', async () => {
     const response = await request(app).get('/api/v1/auth/me');
     expect(response.status).toBe(401);

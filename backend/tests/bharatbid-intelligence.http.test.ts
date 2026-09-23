@@ -16,6 +16,8 @@ import {
   getTestRepositories,
   resetDatabase,
 } from './helpers/database';
+import { createOpenTenderWithRequirements } from './helpers/tender-setup';
+import { shareDefaultOrganization } from './helpers/organization';
 
 const logger = pino({ level: 'silent' });
 const VALID_PASSWORD = 'correct-horse';
@@ -90,46 +92,32 @@ describeDatabase('BharatBid intelligence HTTP', () => {
   }
 
   async function createBid(token: string, bidder: Record<string, string>) {
-    const tender = await request(app).post('/api/v1/tenders').set(authHeader(token)).send({
-      referenceNumber: `GEM/2026/B/INT/${Date.now()}-${Math.floor(Math.random() * 10_000)}`,
-      title: 'Intelligence foundation tender',
-      organizationName: 'Chennai Petroleum Corporation Limited',
-      departmentName: 'Contracts and Procurement',
-      category: 'Goods',
-      status: 'OPEN',
-      issueDate: '2026-07-01',
-      closingDate: '2026-09-15',
-    });
-    expect(tender.status).toBe(201);
-    const gstReq = await request(app)
-      .post(`/api/v1/tenders/${tender.body.data.tender.id}/requirements`)
-      .set(authHeader(token))
-      .send({
-        name: 'GST registration',
-        requirementType: 'statutory',
-        mandatory: true,
-      });
-    expect(gstReq.status).toBe(201);
-    const techReq = await request(app)
-      .post(`/api/v1/tenders/${tender.body.data.tender.id}/requirements`)
-      .set(authHeader(token))
-      .send({
-        name: 'Technical capability statement',
-        requirementType: 'technical',
-        mandatory: true,
-      });
-    expect(techReq.status).toBe(201);
+    const published = await createOpenTenderWithRequirements(
+      app,
+      token,
+      {
+        referenceNumber: `GEM/2026/B/INT/${Date.now()}-${Math.floor(Math.random() * 10_000)}`,
+        title: 'Intelligence foundation tender',
+        organizationName: 'Chennai Petroleum Corporation Limited',
+        departmentName: 'Contracts and Procurement',
+        category: 'Goods',
+      },
+      [
+        { name: 'GST registration', requirementType: 'statutory', mandatory: true },
+        { name: 'Technical capability statement', requirementType: 'technical', mandatory: true },
+      ],
+    );
     const createdBidder = await request(app).post('/api/v1/bidders').set(authHeader(token)).send(bidder);
     expect(createdBidder.status).toBe(201);
     const bid = await request(app)
-      .post(`/api/v1/tenders/${tender.body.data.tender.id}/bids`)
+      .post(`/api/v1/tenders/${published.tenderId}/bids`)
       .set(authHeader(token))
       .send({ bidderId: createdBidder.body.data.bidder.id });
     expect(bid.status).toBe(201);
     return {
       bidId: bid.body.data.bid.id as string,
-      otherTenderId: tender.body.data.tender.id as string,
-      gstRequirementId: gstReq.body.data.requirement.id as string,
+      otherTenderId: published.tenderId,
+      gstRequirementId: published.requirements[0].id,
     };
   }
 
@@ -274,6 +262,7 @@ describeDatabase('BharatBid intelligence HTTP', () => {
     expect(notComparable.status).toBe(400);
 
     const reviewer = await reviewerSession();
+    await shareDefaultOrganization(getTestRepositories(), officer.user.id, reviewer.user.id);
     const forbidden = await request(app)
       .post(`/api/v1/bids/${first.bidId}/cross-verifications`)
       .set(authHeader(reviewer.tokens.accessToken))

@@ -8,7 +8,7 @@ import { notifyProcurement } from './operations/notify';
 import type { AuditRepository } from '../repositories/audit.repository';
 import type { BidReviewItemRecord, BidReviewItemRepository } from '../repositories/bid-review-item.repository';
 import type { BidSubmissionRepository } from '../repositories/bid-submission.repository';
-import { BHARATBID_AUDIT_RESOURCES } from './types';
+import { BHARATBID_AUDIT_RESOURCES, EXTRACTION_ADVISORY } from './types';
 import type { BidIntelligenceService } from './intelligence.service';
 import { candidatesFromIntelligence } from './review/candidates';
 import { assertReviewTransition, nextStatusForAssessment } from './review/lifecycle';
@@ -456,7 +456,7 @@ export class BidReviewService {
       advisory: DEMO_REVIEW_ADVISORY,
       requirement: row.requirement,
       document: row.document
-        ? { ...row.document, extractionAdvisory: 'Machine-extracted information. Not independently verified.' }
+        ? { ...row.document, extractionAdvisory: EXTRACTION_ADVISORY }
         : null,
       verification: row.verification,
       crossVerification: row.crossVerification,

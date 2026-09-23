@@ -9,10 +9,10 @@ export interface SendSmsInput {
 export interface SentSms {
   id: string;
   to: string;
-  provider: 'mock' | 'http';
+  provider: 'mock' | 'http' | 'msg91';
 }
 
 export interface SmsProvider {
-  readonly name: 'mock' | 'http';
+  readonly name: 'mock' | 'http' | 'msg91';
   send(input: SendSmsInput): Promise<SentSms>;
 }

@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 
 import { useAuth } from './AuthProvider';
 import { Card, CardTitle } from '../ui';
-import { LoginForm } from '../ui/auth/LoginForm';
 
 export function SessionGate({
   children,
@@ -13,18 +13,27 @@ export function SessionGate({
   title?: string;
   hint?: string;
 }) {
-  const { isAuthenticated, login, pending, error } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) {
     return (
       <Card className="max-w-md">
         <CardTitle className="mb-3">{title}</CardTitle>
-        <LoginForm
-          hint={hint}
-          loading={pending}
-          error={error}
-          onSubmit={({ email, password }) => login(email, password)}
-        />
+        {hint ? <p className="mb-4 text-sm text-foreground-muted">{hint}</p> : null}
+        <div className="flex flex-wrap gap-3">
+          <Link
+            className="inline-flex h-10 items-center rounded-md bg-accent px-3.5 text-sm font-medium text-accent-foreground"
+            to="/login"
+          >
+            Sign in
+          </Link>
+          <Link
+            className="inline-flex h-10 items-center rounded-md border border-edge px-3.5 text-sm font-medium"
+            to="/signup"
+          >
+            Create account
+          </Link>
+        </div>
       </Card>
     );
   }

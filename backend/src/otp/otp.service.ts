@@ -9,7 +9,6 @@ import type { SmsService } from '../integrations/sms';
 import { MemoryKvStore } from '../lib/kv';
 import type { KvStore } from '../lib/kv';
 import { parseWithSchema } from '../schemas/parse';
-import { isDemoMode } from '../features';
 import type { AppConfig } from '../types/config';
 import type { AppLogger } from '../utils/logger';
 import { CryptoOtpGenerator } from './otp.generator';
@@ -67,7 +66,7 @@ export class OtpService {
     this.ttlMs = options.config.otp.ttlMs;
     this.maxAttempts = options.config.otp.maxAttempts;
     this.resendCooldownMs = options.config.otp.resendCooldownMs;
-    this.forceMock = options.config.otp.provider === 'mock' || isDemoMode(options.config);
+    this.forceMock = options.config.otp.provider === 'mock' || options.config.auth.demoAuth;
     this.logger = options.logger;
     this.mockProvider = options.providers?.mock ?? new MockOtpProvider();
     this.emailProvider = options.providers?.email ?? new EmailOtpProvider(options.email ?? null);
@@ -127,7 +126,7 @@ export class OtpService {
       throw new ExternalServiceError('Failed to deliver OTP', { provider: channel });
     }
 
-    this.logger.info({ purpose, channel, destination }, 'OTP requested');
+    this.logger.info({ purpose, channel }, 'OTP requested');
 
     return this.toRequestResult(purpose, channel, destination);
   }
@@ -162,7 +161,7 @@ export class OtpService {
     if (!consumed) {
       throw this.verifyError('consumed');
     }
-    this.logger.info({ purpose, destination }, 'OTP verified');
+    this.logger.info({ purpose }, 'OTP verified');
 
     return {
       verified: true,

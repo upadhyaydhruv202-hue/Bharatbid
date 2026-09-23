@@ -142,7 +142,7 @@ export const BID_DOCUMENT_EXTRACTION_STATUSES = [
 export type BidDocumentExtractionStatusName = (typeof BID_DOCUMENT_EXTRACTION_STATUSES)[number];
 
 export const EXTRACTION_ADVISORY =
-  'Machine-extracted information. Not independently verified.';
+  'OCR EXTRACTED / machine-extracted candidate text only. Not GOVERNMENT VERIFIED. Official verification requires an authorized provider lookup.';
 
 export const TENDER_CATEGORIES = ['Goods', 'Services', 'Works', 'IT', 'Consultancy', 'Other'] as const;
 

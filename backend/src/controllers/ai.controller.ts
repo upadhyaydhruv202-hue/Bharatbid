@@ -54,15 +54,6 @@ export class AiController {
 
   generateStructured = asyncHandler(async (req: Request, res: Response) => {
     const body = parseBody(aiStructuredBodySchema, req.body);
-    if (body.schemaName === 'decision') {
-      const result = await this.service().generateDecision({
-        prompt: body.prompt,
-        temperature: body.temperature,
-        maxOutputTokens: body.maxOutputTokens,
-      });
-      return sendSuccess(res, result);
-    }
-
     const result = await this.service().generateStructured({
       prompt: wrapUntrustedData('user', body.prompt),
       temperature: body.temperature,

@@ -15,6 +15,7 @@ import {
   getTestRepositories,
   resetDatabase,
 } from './helpers/database';
+import { openTenderSchedule } from './helpers/tender-window';
 
 const logger = pino({ level: 'silent' });
 const VALID_PASSWORD = 'correct-horse';
@@ -96,8 +97,7 @@ describeDatabase('BharatBid operations HTTP', () => {
       departmentName: 'Contracts and Procurement',
       category: 'Goods',
       status: 'OPEN',
-      issueDate: '2026-07-01',
-      closingDate: '2026-09-15',
+      ...openTenderSchedule(),
     });
     expect(tender.status).toBe(201);
     const tenderId = tender.body.data.tender.id as string;

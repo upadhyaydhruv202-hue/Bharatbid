@@ -37,7 +37,7 @@ describe('isFeatureEnabled', () => {
   it('returns false when a flag is missing', () => {
     const config = loadConfig({ NODE_ENV: 'test' });
     expect(isFeatureEnabled(config, 'sms')).toBe(false);
-    expect(isFeatureEnabled(config, 'otp')).toBe(false);
+    expect(isFeatureEnabled(config, 'otp')).toBe(true);
     expect(isFeatureEnabled(config, 's3')).toBe(false);
     expect(isFeatureEnabled(config, 'pdf')).toBe(true);
   });

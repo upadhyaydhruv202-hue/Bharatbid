@@ -161,22 +161,15 @@ describe('AI HTTP (authenticated, no database)', () => {
     expect(response.body.data.model).toBe('mock');
   });
 
-  it('returns a decision envelope from structured HTTP', async () => {
+  it('rejects decision envelopes from structured HTTP', async () => {
     const app = buildAiApp();
     const response = await request(app).post('/api/v1/ai/structured').send({
       prompt: 'Should we notify the customer about the delay?',
       schemaName: 'decision',
     });
 
-    expect(response.status).toBe(200);
-    expect(response.body.data.data).toEqual(
-      expect.objectContaining({
-        result: expect.any(Object),
-        confidence: expect.any(Number),
-        evidence: expect.any(Array),
-        requiresReview: expect.any(Boolean),
-      }),
-    );
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe(ERROR_CODES.VALIDATION_ERROR);
   });
 
   it('rejects system-role messages from HTTP clients', async () => {

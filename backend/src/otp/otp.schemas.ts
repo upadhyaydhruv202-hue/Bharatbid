@@ -41,4 +41,7 @@ export const otpVerifyBodySchema = z.object({
   destination: z.string().trim().min(1).max(254),
   purpose: z.enum(OTP_PURPOSES).default('login'),
   code: otpCodeSchema,
+  displayName: z.string().trim().min(1).max(120).optional(),
+  organizationName: z.string().trim().min(1).max(160).optional(),
+  phone: z.string().trim().min(8).max(20).optional(),
 });

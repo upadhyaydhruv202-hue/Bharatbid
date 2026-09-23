@@ -71,10 +71,22 @@ export function compareVerificationPair(input: CrossCompareInput): {
     compareText('state', 'State', input.leftSnapshot.state, input.rightSnapshot.state, normalizeStateName),
   ];
   const difference = fields.some((field) => field.outcome === 'difference');
-  const status: CrossVerificationStatusName = difference ? 'inconsistent' : 'consistent';
+  const incomplete = fields.some(
+    (field) =>
+      field.outcome === 'missing_from_left' ||
+      field.outcome === 'missing_from_right' ||
+      field.outcome === 'not_comparable',
+  );
+  const status: CrossVerificationStatusName = difference
+    ? 'inconsistent'
+    : incomplete
+      ? 'insufficient_evidence'
+      : 'consistent';
   const summary = difference
     ? 'A difference was detected between the two source records. Officer review is recommended. This is not a fraud finding.'
-    : 'Compared fields are consistent after safe normalization.';
+    : incomplete
+      ? 'One or both source records are missing a comparable field. Missing data is not treated as a mismatch.'
+      : 'Compared fields are consistent after safe normalization.';
   return {
     status,
     fields,

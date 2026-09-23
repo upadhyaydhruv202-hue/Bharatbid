@@ -14,6 +14,9 @@ export type PublicUser = {
 export type UserWithRoles = PublicUser & {
   roles: string[];
   permissions: string[];
+  organizationIds?: string[];
+  currentOrganizationId?: string | null;
+  organizations?: Array<{ id: string; name: string; slug: string; isDefault: boolean }>;
 };
 
 export const publicUserSelect = {

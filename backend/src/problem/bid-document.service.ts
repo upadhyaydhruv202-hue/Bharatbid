@@ -22,11 +22,13 @@ import {
   type TenderActivityItem,
 } from './serialize';
 import { BHARATBID_AUDIT_RESOURCES } from './types';
+import { assertBidDocumentsMutable } from './transitions';
+import { extractOcrText } from './verification/ocr';
 
 const DUPLICATE_FILE_MESSAGE = 'An identical file already exists for this submission.';
 const EXTRACTION_ENGINE = 'bharatbid-text-extract';
 const IMAGE_EXTRACTION_ERROR =
-  'Text extraction is not available for this file. The original document is still available.';
+  'Text extraction is not available for this file. OCR is not configured. Extracted values are never verification results.';
 
 export class BidDocumentService {
   constructor(
@@ -76,6 +78,10 @@ export class BidDocumentService {
     actorId?: string,
   ): Promise<BidDocumentDetail> {
     const bid = await this.requireBid(bidId);
+    assertBidDocumentsMutable(
+      { status: bid.tender.status, closingDate: bid.tender.closingDate },
+      bid.status,
+    );
     if (input.file.size > this.maxBytes) {
       throw new ValidationError(`Uploaded file is too large. Maximum size is ${this.maxBytes} bytes`, [
         { path: 'file.size', message: `File exceeds the maximum allowed size of ${this.maxBytes} bytes`, code: 'too_big' },
@@ -147,6 +153,11 @@ export class BidDocumentService {
     actorId?: string,
   ): Promise<BidDocumentDetail> {
     const existing = await this.requireDocument(bidId, id);
+    const bid = await this.requireBid(bidId);
+    assertBidDocumentsMutable(
+      { status: bid.tender.status, closingDate: bid.tender.closingDate },
+      bid.status,
+    );
     if (!existing.isCurrent) {
       throw new ValidationError('Only the current document version can be replaced', [
         { path: 'id', message: 'Replace the latest version', code: 'custom' },
@@ -218,6 +229,10 @@ export class BidDocumentService {
   async linkRequirement(bidId: string, id: string, tenderRequirementId: string | null, actorId?: string) {
     const document = await this.requireDocument(bidId, id);
     const bid = await this.requireBid(bidId);
+    assertBidDocumentsMutable(
+      { status: bid.tender.status, closingDate: bid.tender.closingDate },
+      bid.status,
+    );
     const requirementId = await this.resolveRequirement(bid.tenderId, tenderRequirementId);
     const updated = await this.documents.update(document.id, { tenderRequirementId: requirementId });
     const requirementName = updated.requirement?.name ?? null;
@@ -239,6 +254,11 @@ export class BidDocumentService {
 
   async archive(bidId: string, id: string, actorId?: string) {
     const document = await this.requireDocument(bidId, id);
+    const bid = await this.requireBid(bidId);
+    assertBidDocumentsMutable(
+      { status: bid.tender.status, closingDate: bid.tender.closingDate },
+      bid.status,
+    );
     if (document.status === 'archived') {
       return this.get(bidId, id);
     }
@@ -328,20 +348,43 @@ export class BidDocumentService {
       });
       const usable = extracted.text.trim().length > 0 && !extracted.multimodal;
       if (!usable) {
+        const ocr = await extractOcrText({
+          buffer,
+          mimeType: document.mimeType,
+          filename: document.originalFilename,
+        });
+        if (!ocr.ok) {
+          await this.documents.update(documentId, {
+            extractionStatus: 'failed',
+            extractionError: ocr.reason,
+            extractedText: null,
+            extractedAt: new Date(),
+            extractionEngine: ocr.engine,
+          });
+          await this.audit?.record({
+            actorId,
+            action: AUDIT_ACTIONS.DOCUMENT_EXTRACTION_FAILED,
+            resource: BHARATBID_AUDIT_RESOURCES.BID,
+            resourceId: bidId,
+            metadata: { documentId, originalFilename: document.originalFilename, ocr: true },
+            status: 'failed',
+          });
+          return;
+        }
         await this.documents.update(documentId, {
-          extractionStatus: 'failed',
-          extractionError: IMAGE_EXTRACTION_ERROR,
-          extractedText: null,
+          extractionStatus: 'completed',
+          extractedText: ocr.text,
           extractedAt: new Date(),
-          extractionEngine: EXTRACTION_ENGINE,
+          extractionEngine: ocr.engine,
+          extractionError: null,
         });
         await this.audit?.record({
           actorId,
-          action: AUDIT_ACTIONS.DOCUMENT_EXTRACTION_FAILED,
+          action: AUDIT_ACTIONS.DOCUMENT_EXTRACTION_COMPLETED,
           resource: BHARATBID_AUDIT_RESOURCES.BID,
           resourceId: bidId,
-          metadata: { documentId, originalFilename: document.originalFilename },
-          status: 'failed',
+          metadata: { documentId, originalFilename: document.originalFilename, ocrCandidate: true },
+          status: 'succeeded',
         });
         return;
       }

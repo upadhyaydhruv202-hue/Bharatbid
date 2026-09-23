@@ -203,6 +203,14 @@ export const createTenderRequirementBodySchema = z.object({
   sortOrder: z.number().int().min(0).max(10_000).optional(),
 });
 
+export const amendTenderRequirementBodySchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  description: z.string().trim().max(4000).optional().nullable(),
+  requirementType: requirementTypeSchema.optional(),
+  mandatory: z.boolean().optional(),
+  changeReason: z.string().trim().min(8).max(2000),
+});
+
 export const updateTenderRequirementBodySchema = z
   .object({
     name: z.string().trim().min(1).max(200).optional(),
@@ -469,6 +477,7 @@ export const createVerificationBodySchema = z.object({
     }
     return value;
   }, idSchema.optional()),
+  force: z.boolean().optional(),
 }).strict().superRefine((body, ctx) => {
   const supported = SOURCE_SUPPORTED_IDENTIFIERS[body.source];
   if (supported && !supported.includes(body.identifierType)) {

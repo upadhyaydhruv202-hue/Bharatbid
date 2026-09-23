@@ -132,7 +132,7 @@ describe('BidCrossChecksPanel', () => {
     expect(await screen.findByText('GST ↔ MCA')).toBeInTheDocument();
     expect(screen.getByText('GST ↔ Udyam')).toBeInTheDocument();
     expect(screen.getByText('MCA ↔ Udyam')).toBeInTheDocument();
-    expect(screen.getAllByText('DEMO SOURCE').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('DEMO — SYNTHETIC DATA').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Consistent').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Inconsistent').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Insufficient evidence').length).toBeGreaterThan(0);
@@ -147,7 +147,7 @@ describe('BidCrossChecksPanel', () => {
     expect(await screen.findByRole('heading', { name: 'Cross-check details' })).toBeInTheDocument();
     expect(screen.getByText('SIMULATED SOURCE')).toBeInTheDocument();
     expect(screen.getAllByText('Normalized match').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Exact match').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('CONSISTENT').length).toBeGreaterThan(0);
     expect(screen.getByText(/ABC Technologies Pvt Ltd/)).toBeInTheDocument();
   });
 

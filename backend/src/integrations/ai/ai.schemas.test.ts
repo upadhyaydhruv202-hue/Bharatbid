@@ -166,6 +166,15 @@ describe('HTTP AI body schemas', () => {
     expect(parsed.prompt).toBe('Classify this');
     expect(parsed).not.toHaveProperty('system');
   });
+
+  it('rejects decision schemaName on structured HTTP bodies', () => {
+    expect(() =>
+      parseWithSchema(aiStructuredBodySchema, {
+        prompt: 'Pick a winner',
+        schemaName: 'decision',
+      }),
+    ).toThrow(ValidationError);
+  });
 });
 
 describe('resolveAiRuntimeConfig', () => {

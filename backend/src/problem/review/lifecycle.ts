@@ -6,7 +6,6 @@ const START: Partial<Record<ReviewItemStatusName, ReviewItemStatusName[]>> = {
 };
 
 const ASSESS: Partial<Record<ReviewItemStatusName, ReviewItemStatusName[]>> = {
-  open: ['assessed', 'clarification_requested'],
   in_review: ['assessed', 'clarification_requested'],
   clarification_requested: ['clarification_requested'],
   assessed: ['assessed', 'clarification_requested'],
