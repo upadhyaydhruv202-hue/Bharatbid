@@ -376,6 +376,39 @@
   background: rgb(var(--hsk-edge));
 }
 
+.bb-auth-channel {
+  margin-top: 1.25rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgb(var(--hsk-edge));
+  background: rgb(var(--hsk-surface-muted));
+}
+
+.bb-auth-channel__tab {
+  border: 0;
+  border-radius: 0.45rem;
+  background: transparent;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgb(var(--hsk-foreground-muted));
+  cursor: pointer;
+}
+
+.bb-auth-channel__tab.is-active {
+  background: rgb(var(--hsk-surface-elevated));
+  color: rgb(var(--hsk-foreground));
+  box-shadow: 0 1px 2px rgb(17 28 46 / 0.08);
+}
+
+.bb-auth-channel__tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .bb-auth-step {
   display: inline-flex;
   align-items: center;

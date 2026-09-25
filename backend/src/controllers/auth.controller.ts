@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import { getAuthenticatedUser, tryExtractBearerToken } from '../auth/authenticate';
 import type { GoogleAuthService } from '../auth/google.service';
 import { AUDIT_ACTIONS } from '../constants';
-import { AuthenticationError, DatabaseError, ExternalServiceError } from '../errors';
+import { AuthenticationError, DatabaseError, ExternalServiceError, FeatureDisabledError } from '../errors';
 import {
   googleCredentialBodySchema,
   loginBodySchema,
@@ -46,7 +46,7 @@ export class AuthController {
               ? Boolean(this.config.sms.msg91.authKey && this.config.sms.msg91.templateId)
               : this.config.sms.provider !== 'mock')),
       ),
-      passwordLogin: true,
+      passwordLogin: this.config ? this.config.auth.passwordLogin : true,
     });
   });
 
@@ -57,6 +57,9 @@ export class AuthController {
   });
 
   login = asyncHandler(async (req: Request, res: Response) => {
+    if (this.config && !this.config.auth.passwordLogin) {
+      throw new FeatureDisabledError('Password sign-in');
+    }
     const body = parseBody(loginBodySchema, req.body);
     const session = await this.service().login(body);
     return sendSuccess(res, session);

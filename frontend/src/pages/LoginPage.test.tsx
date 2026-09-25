@@ -52,6 +52,49 @@ describe('LoginPage', () => {
     expect(screen.queryByText('demo-password')).not.toBeInTheDocument();
   });
 
+  it('hides password sign-in when disabled and sends mobile OTP requests as E.164', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo, _init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/public-config')) {
+        return jsonResponse({
+          googleClientId: null,
+          googleEnabled: false,
+          demoAuth: false,
+          otpEnabled: true,
+          emailOtpConfigured: true,
+          mobileOtpConfigured: true,
+          passwordLogin: false,
+        });
+      }
+      return jsonResponse({ expiresInSeconds: 300, resendAvailableInSeconds: 30, digits: 6 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <MemoryRouter initialEntries={['/login']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Sign in')).toBeInTheDocument();
+    await screen.findByRole('tab', { name: 'Mobile' });
+    expect(screen.queryByRole('button', { name: 'Sign in with password' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Mobile' }));
+    fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '98400 12345' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send one-time code' }));
+
+    await vi.waitFor(() => {
+      const otpCall = fetchMock.mock.calls.find(([input]) => String(input).includes('/auth/mobile/request-otp'));
+      expect(otpCall).toBeDefined();
+      expect(String(otpCall?.[1]?.body)).toContain('+919840012345');
+    });
+  });
+
   it('replaces the login route after a successful password sign-in', async () => {
     vi.stubGlobal(
       'fetch',

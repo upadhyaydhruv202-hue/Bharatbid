@@ -164,6 +164,7 @@ export const envSchema = z.object({
   AUTH_PASSWORD_RESET_IP_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(20),
   AUTH_PASSWORD_RESET_RATE_LIMIT_WINDOW: z.string().min(1).default('15m'),
   DEMO_MODE: booleanEnv,
+  DEMO_PROVISION_NEW_USERS: booleanEnv,
 
   SCHEDULER_ENABLED: booleanEnv,
   SCHEDULER_INTERVAL: z.string().min(1).default('1m'),
@@ -188,6 +189,8 @@ export const envSchema = z.object({
 
   ALLOW_DEMO_IN_PRODUCTION: booleanEnv,
   JOBS_PROCESS: booleanEnv,
+  JOBS_MODE: z.enum(['queue', 'inline']).default('queue'),
+  AUTH_PASSWORD_LOGIN: booleanEnv,
   STORAGE_SIGNING_SECRET: optionalString,
 
   VERIFICATION_TIMEOUT_MS: z.coerce.number().int().min(500).max(60_000).default(8_000),

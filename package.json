@@ -19,6 +19,7 @@
     "dev:frontend": "npm run dev -w frontend",
     "dev:workers": "npm run dev -w workers",
     "build": "npm run build --workspaces --if-present",
+    "vercel-build": "npm run db:generate && npm run build -w frontend",
     "start": "npm run start -w backend",
     "lint": "npm run lint --workspaces --if-present",
     "lint:fix": "npm run lint:fix --workspaces --if-present",

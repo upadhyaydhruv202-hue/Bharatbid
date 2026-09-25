@@ -253,6 +253,36 @@ describe('loadConfig', () => {
     expect(config.demoMode).toBe(true);
   });
 
+  it('does not let DEMO_MODE mock auth or enable password sign-in in production', () => {
+    const config = loadConfig({
+      NODE_ENV: 'production',
+      DEMO_MODE: 'true',
+      ALLOW_DEMO_IN_PRODUCTION: 'true',
+      AI_ENABLED: 'false',
+      FEATURE_AI: 'false',
+      ...productionSecrets,
+    });
+
+    expect(config.demoMode).toBe(true);
+    expect(config.auth.demoAuth).toBe(false);
+    expect(config.auth.passwordLogin).toBe(false);
+    expect(config.jobs.mode).toBe('queue');
+  });
+
+  it('honours explicit AUTH_PASSWORD_LOGIN and JOBS_MODE=inline in production', () => {
+    const config = loadConfig({
+      NODE_ENV: 'production',
+      AI_ENABLED: 'false',
+      FEATURE_AI: 'false',
+      AUTH_PASSWORD_LOGIN: 'true',
+      JOBS_MODE: 'inline',
+      ...productionSecrets,
+    });
+
+    expect(config.auth.passwordLogin).toBe(true);
+    expect(config.jobs.mode).toBe('inline');
+  });
+
   it('rejects wildcard CORS origins', () => {
     expect(() =>
       loadConfig({

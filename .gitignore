@@ -4,6 +4,7 @@
 !.env.example
 !.env.test.example
 !.env.demo.example
+!.env.vercel.example
 
 # TypeScript
 *.tsbuildinfo
@@ -88,6 +89,9 @@ google-services.json
 # Docker
 docker-data/
 
+# Vercel CLI link/state
+.vercel/
+
 # Redis persistence if a local server uses the repository directory
 dump.rdb
 *.aof
@@ -97,3 +101,6 @@ dump.rdb
 *.swo
 *~
 
+# Agent skills installed by Vercel Marketplace integrations
+.agents/
+skills-lock.json

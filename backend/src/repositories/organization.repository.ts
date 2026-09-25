@@ -35,13 +35,22 @@ export class OrganizationRepository {
     }
   }
 
-  async attachAsDefaultOrganization(organizationId: string, userId: string): Promise<void> {
+  /** Returns false (and changes nothing) when the organization has not been created/seeded. */
+  async attachAsDefaultOrganization(organizationId: string, userId: string): Promise<boolean> {
     try {
+      const organization = await this.db.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true },
+      });
+      if (!organization) {
+        return false;
+      }
       await this.db.organizationMember.updateMany({
         where: { userId },
         data: { isDefault: false },
       });
       await this.addMember(organizationId, userId, true);
+      return true;
     } catch (error) {
       mapPrismaError(error);
     }

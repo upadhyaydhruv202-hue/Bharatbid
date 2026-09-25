@@ -226,6 +226,7 @@ export function mapConfig(env: ParsedEnv): AppConfig {
       backoffMs: env.JOB_BACKOFF_MS,
       timeoutMs: env.JOB_TIMEOUT_MS,
       process: bool(env.JOBS_PROCESS, true),
+      mode: env.JOBS_MODE,
     },
     jwt: {
       accessSecret: env.JWT_ACCESS_SECRET,
@@ -249,10 +250,16 @@ export function mapConfig(env: ParsedEnv): AppConfig {
       loginRateLimitMax: env.AUTH_LOGIN_RATE_LIMIT_MAX,
       loginIpRateLimitMax: env.AUTH_LOGIN_IP_RATE_LIMIT_MAX,
       loginRateLimitWindowMs: parseDurationToMs(env.AUTH_LOGIN_RATE_LIMIT_WINDOW),
+      // Production never inherits mocked OTP/email/SMS from DEMO_MODE; it must be set explicitly (and is gated).
       demoAuth:
         env.AUTH_DEMO_MODE === undefined
-          ? resolveDemoMode(env)
+          ? env.NODE_ENV === 'production'
+            ? false
+            : resolveDemoMode(env)
           : bool(env.AUTH_DEMO_MODE, false),
+      passwordLogin: bool(env.AUTH_PASSWORD_LOGIN, env.NODE_ENV !== 'production'),
+      demoProvisioning:
+        resolveDemoMode(env) && bool(env.DEMO_PROVISION_NEW_USERS, env.NODE_ENV !== 'test'),
       googleClientId: env.GOOGLE_CLIENT_ID,
       googleClientSecret: env.GOOGLE_CLIENT_SECRET,
       googleRedirectUri: env.GOOGLE_REDIRECT_URI,

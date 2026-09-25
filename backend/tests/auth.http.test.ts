@@ -40,6 +40,22 @@ describe('Auth HTTP (no database)', () => {
     expect(JSON.stringify(response.body)).not.toMatch(/GOOGLE_CLIENT_SECRET|MSG91_AUTH_KEY|SMTP_PASSWORD/i);
   });
 
+  it('disables password sign-in when AUTH_PASSWORD_LOGIN=false', async () => {
+    const noPasswordApp = createApp({
+      config: loadConfig({ ...AUTH_TEST_ENV, AUTH_PASSWORD_LOGIN: 'false' }),
+      logger,
+    }).app;
+
+    const configResponse = await request(noPasswordApp).get('/api/v1/auth/public-config');
+    expect(configResponse.body.data.passwordLogin).toBe(false);
+
+    const login = await request(noPasswordApp)
+      .post('/api/v1/auth/login')
+      .send({ email: 'demo.officer@example.com', password: 'demo-password' });
+    expect(login.status).toBe(404);
+    expect(login.body.success).toBe(false);
+  });
+
   it('rejects an invalid Google credential', async () => {
     const response = await request(app).post('/api/v1/auth/google').send({ credential: 'not-a-google-token' });
     expect(response.status).toBeGreaterThanOrEqual(400);

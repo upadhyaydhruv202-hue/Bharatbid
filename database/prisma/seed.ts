@@ -47,7 +47,12 @@ async function seed(): Promise<void> {
     return;
   }
 
-  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+  // Production/hosted demos: synthetic records stay, but no shared known password.
+  const seedDemoPasswords =
+    process.env.SEED_DEMO_PASSWORDS === undefined
+      ? process.env.NODE_ENV !== 'production'
+      : process.env.SEED_DEMO_PASSWORDS === 'true';
+  const passwordHash = seedDemoPasswords ? await bcrypt.hash(DEMO_PASSWORD, 10) : null;
 
   const users = [];
   for (const demoUser of DEMO_USERS) {
@@ -131,6 +136,10 @@ async function seed(): Promise<void> {
   console.log('Seeded demo roles, permissions, users, and notifications.');
   await seedBharatBidDemoData(prisma);
   console.log('Seeded BharatBid demo tenders, requirements, bidders, bid submissions, and synthetic documents.');
+  if (!seedDemoPasswords) {
+    console.log('Demo users seeded without passwords (SEED_DEMO_PASSWORDS off). Sign in with email OTP, mobile OTP, or Google.');
+    return;
+  }
   console.log('Demo login (local/demo only, not a real credential):');
   for (const user of DEMO_USERS) {
     console.log(`  ${user.email} / ${DEMO_PASSWORD} (${user.role})`);

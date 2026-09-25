@@ -19,6 +19,7 @@ export type { JobEnqueueOptions, JobHandler, JobQueue, JobRecord, JobStatusRecor
 export type { PublicJobStatus } from './queue.types';
 
 export interface CreateJobQueueOptions {
+  inline?: boolean;
   logger?: AppLogger;
   redisUrl?: string;
   jobsDir?: string;
@@ -200,7 +201,35 @@ export class InMemoryJobQueue implements JobQueue {
   }
 }
 
+/**
+ * Runs each job (with its retries) to completion before `enqueue` resolves. Used on serverless
+ * hosts where no long-lived worker exists and work scheduled after the response may be frozen.
+ */
+export class InlineJobQueue extends InMemoryJobQueue {
+  private readonly registered = new Set<string>();
+
+  override process<T extends Record<string, unknown>>(name: string, handler: JobHandler<T>): void {
+    this.registered.add(name);
+    super.process(name, handler);
+  }
+
+  override async enqueue<T extends Record<string, unknown>>(
+    name: string,
+    payload: T,
+    options: JobEnqueueOptions = {},
+  ): Promise<string> {
+    // An unprocessable job would sit at the head of the pending list and block every later job.
+    if (!this.registered.has(name)) {
+      throw new ExternalServiceError(`No processor registered for job ${name}`, { provider: 'jobs' });
+    }
+    const id = await super.enqueue(name, payload, options);
+    await this.waitForIdle();
+    return id;
+  }
+}
+
 const CREATE_QUEUE_KEYS: Array<keyof CreateJobQueueOptions> = [
+  'inline',
   'redisUrl',
   'logger',
   'jobsDir',
@@ -231,6 +260,10 @@ export function createJobQueue(
     backoffMs: options.defaultBackoffMs,
     timeoutMs: options.defaultTimeoutMs,
   };
+
+  if (options.inline) {
+    return instrumentJobQueue(new InlineJobQueue(options.logger, defaults), options.metrics);
+  }
 
   if (options.redisUrl) {
     return gateJobProcessing(

@@ -1,15 +1,18 @@
 import pino from 'pino';
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app';
 import { loadConfig } from '../src/config';
 import { createDatabaseClient, type DatabaseClient } from '../src/lib/database';
 import { FixedOtpGenerator } from '../src/otp';
+import { DEMO_ORGANIZATION_ID } from '../src/problem/organization-scope';
+import { seedRbacCatalog } from '../src/rbac/seed-catalog';
 import { AUTH_TEST_ENV } from './helpers/auth';
 import {
   describeDatabase,
   disconnectTestPrisma,
+  getTestPrisma,
   resetDatabase,
 } from './helpers/database';
 
@@ -88,5 +91,47 @@ describeDatabase('Auth identity HTTP', () => {
       code: '123456',
     });
     expect(verified.status).toBe(401);
+  });
+
+  describe('DEMO_PROVISION_NEW_USERS', () => {
+    function provisioningApp() {
+      return createApp({
+        config: loadConfig({
+          ...AUTH_TEST_ENV,
+          DATABASE_URL: process.env.DATABASE_URL,
+          DEMO_MODE: 'true',
+          DEMO_PROVISION_NEW_USERS: 'true',
+        }),
+        logger,
+        database,
+      }).app;
+    }
+
+    async function register(target: ReturnType<typeof provisioningApp>, email: string) {
+      return request(target)
+        .post('/api/v1/auth/register')
+        .send({ email, password: 'correct-horse', displayName: 'Demo Member' });
+    }
+
+    it('grants procurement_officer and attaches the seeded demo tenant', async () => {
+      await seedRbacCatalog(getTestPrisma());
+      await getTestPrisma().organization.create({
+        data: { id: DEMO_ORGANIZATION_ID, slug: 'demo-cpcl', name: 'Demo Tenant' },
+      });
+
+      const response = await register(provisioningApp(), 'demo.member@example.com');
+      expect(response.status).toBe(201);
+      expect(response.body.data.user.roles).toContain('procurement_officer');
+      expect(response.body.data.user.currentOrganizationId).toBe(DEMO_ORGANIZATION_ID);
+    });
+
+    it('still signs up (personal workspace only) when the demo tenant is not seeded', async () => {
+      await seedRbacCatalog(getTestPrisma());
+
+      const response = await register(provisioningApp(), 'early.member@example.com');
+      expect(response.status).toBe(201);
+      expect(response.body.data.user.currentOrganizationId).not.toBe(DEMO_ORGANIZATION_ID);
+      expect(response.body.data.user.organizations?.length).toBe(1);
+    });
   });
 });

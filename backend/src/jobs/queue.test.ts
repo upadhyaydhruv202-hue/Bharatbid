@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { TimeoutError, ValidationError } from '../errors';
-import { createJobQueue, InMemoryJobQueue } from './queue';
+import { createJobQueue, InlineJobQueue, InMemoryJobQueue } from './queue';
 import { JOB_NAMES } from '../constants';
 import { MemoryKvStore } from '../lib/kv';
 import { registerCleanupJob } from './cleanup';
@@ -114,6 +114,31 @@ describe('createJobQueue', () => {
     const queue = createJobQueue();
     expect(queue).toBeInstanceOf(InMemoryJobQueue);
     expect(queue.backend).toBe('memory');
+  });
+
+  it('builds an inline queue when requested, even if Redis is configured', () => {
+    const queue = createJobQueue({ inline: true, redisUrl: 'redis://localhost:6379' });
+    expect(queue).toBeInstanceOf(InlineJobQueue);
+  });
+});
+
+describe('InlineJobQueue', () => {
+  it('finishes the job before enqueue resolves', async () => {
+    const queue = new InlineJobQueue();
+    let done = false;
+    queue.process('demo', async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      done = true;
+    });
+
+    const jobId = await queue.enqueue('demo', { ok: true });
+    expect(done).toBe(true);
+    await expect(queue.getJob(jobId)).resolves.toMatchObject({ status: 'completed' });
+  });
+
+  it('rejects jobs that have no registered processor instead of hanging', async () => {
+    const queue = new InlineJobQueue();
+    await expect(queue.enqueue('unregistered', { ok: true })).rejects.toThrow(/No processor registered/);
   });
 });
 

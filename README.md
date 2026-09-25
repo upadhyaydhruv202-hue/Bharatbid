@@ -271,9 +271,9 @@ Timed script: [`docs/BHARATBID_DEMO_GUIDE.md`](docs/BHARATBID_DEMO_GUIDE.md).
 
 ## User roles
 
-**Fastest judge path:** `demo.officer@example.com` / `demo-password` (password mode on `/login`).
+**Fastest judge path (local stack):** `demo.officer@example.com` / `demo-password` (password mode on `/login`).
 
-Primary product sign-in is **official email OTP** or **Continue with Google**. Password remains available for seeded SIH accounts and local demos when OTP/Google are not configured. Seeded accounts use password `demo-password`.
+Primary product sign-in is **official email OTP**, **mobile OTP (MSG91)**, or **Continue with Google**. Password sign-in exists only for seeded accounts on local/dev stacks; in production it is off by default (`AUTH_PASSWORD_LOGIN`) and demo users are seeded without passwords — on the Vercel deployment, sign up with email, mobile, or Google instead.
 
 | Role | Responsibility | In this product |
 | --- | --- | --- |
@@ -728,6 +728,8 @@ Summary: [`ARCHITECTURE_DECISION.md`](ARCHITECTURE_DECISION.md).
 
 **Supported for demonstration:** Docker Compose (`docker compose up --build`) and hybrid host Node + Compose Postgres/Redis.
 
+**Vercel (single project, same origin):** static frontend + the Express API as one serverless function, Neon Postgres, Upstash Redis, real SMTP / MSG91 / Google sign-in, private document storage in Postgres. Step-by-step guide: [`docs/VERCEL_DEPLOYMENT.md`](docs/VERCEL_DEPLOYMENT.md) · variable template: [`.env.vercel.example`](.env.vercel.example).
+
 CD workflow exists ([`docs/ci-cd.md`](docs/ci-cd.md)) as an optional GitHub Actions pipeline. This README does **not** claim a production-certified government deployment.
 
 ---
@@ -755,6 +757,7 @@ Additional contributors can be listed here as they appear on the repository.
 - [docs/README.md](docs/README.md) — documentation index
 - [docs/ASSIGNMENT.md](docs/ASSIGNMENT.md) — software engineering assignment document
 - [docs/BHARATBID_DEMO_GUIDE.md](docs/BHARATBID_DEMO_GUIDE.md) — live demo script
+- [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md) — Vercel deployment guide
 - [docs/BHARATBID_SECURITY.md](docs/BHARATBID_SECURITY.md) — security posture
 - [CHANGELOG.md](CHANGELOG.md) — documentation redesign notes
 - React, Express, Prisma, PostgreSQL, Vite, Tailwind, Vitest, Docker — as used in `package.json` / Compose files

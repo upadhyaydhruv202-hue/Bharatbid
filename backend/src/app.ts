@@ -122,8 +122,8 @@ export function createApp(options: CreateAppOptions): AppContext {
           passwordService: new PasswordService(options.config.auth.password),
           tokenService,
           defaultRole: options.config.auth.defaultRole,
-          demoMode: options.config.demoMode,
-          demoOrganizationId: options.config.demoMode ? DEMO_ORGANIZATION_ID : null,
+          demoMode: options.config.auth.demoProvisioning,
+          demoOrganizationId: options.config.auth.demoProvisioning ? DEMO_ORGANIZATION_ID : null,
           revocation,
           audit: auditService,
         })
@@ -132,6 +132,7 @@ export function createApp(options: CreateAppOptions): AppContext {
   const jobs =
     options.jobs ??
     createJobQueue({
+      inline: options.config.jobs.mode === 'inline',
       logger: options.logger,
       redisUrl: options.config.redisUrl,
       jobsDir: options.config.redisUrl || options.config.isTest ? undefined : resolveJobsDir(),

@@ -5,6 +5,7 @@ import path from 'node:path';
 import type { PrismaClient } from '@prisma/client';
 
 import { resolveLocalStorageDir } from '../integrations/storage/storage.keys';
+import { PrismaObjectStore } from '../integrations/storage/providers/prisma-object-store';
 import { AUDIT_ACTIONS } from '../constants';
 import { DEFAULT_DEPARTMENT_NAME, DEFAULT_ORGANIZATION_NAME } from './types';
 import { DEMO_ORGANIZATION_ID, DEMO_ORGANIZATION_SLUG } from './organization-scope';
@@ -438,8 +439,27 @@ function syntheticText(title: string, body: string): Buffer {
   );
 }
 
-async function seedSyntheticBidDocuments(prisma: PrismaClient, uploadedById: string | null): Promise<void> {
+/**
+ * Seeded document bytes go to `stored_objects` so every storage provider except s3 can serve them
+ * (postgres directly, local via its shared Postgres read-through). Disk copy only for STORAGE_PROVIDER=local.
+ */
+async function persistSeedObject(prisma: PrismaClient, storageKey: string, buffer: Buffer): Promise<void> {
+  await new PrismaObjectStore(prisma).put({
+    key: storageKey,
+    body: buffer,
+    contentType: 'text/plain',
+    sizeBytes: buffer.length,
+  });
+
+  const provider = process.env.STORAGE_PROVIDER ?? 'local';
+  if (provider !== 'local') return;
   const storageRoot = resolveLocalStorageDir(process.env.STORAGE_LOCAL_DIR ?? 'storage');
+  const fullPath = path.join(storageRoot, ...storageKey.split('/'));
+  mkdirSync(path.dirname(fullPath), { recursive: true });
+  writeFileSync(fullPath, buffer);
+}
+
+async function seedSyntheticBidDocuments(prisma: PrismaClient, uploadedById: string | null): Promise<void> {
   const bidId = id('bid000000001');
   const files: Array<{
     id: string;
@@ -645,9 +665,7 @@ async function seedSyntheticBidDocuments(prisma: PrismaClient, uploadedById: str
 
   for (const file of files) {
     const storageKey = `bids/${bidId}/documents/${file.id}/v${file.versionNumber}`;
-    const fullPath = path.join(storageRoot, ...storageKey.split('/'));
-    mkdirSync(path.dirname(fullPath), { recursive: true });
-    writeFileSync(fullPath, file.buffer);
+    await persistSeedObject(prisma, storageKey, file.buffer);
     const checksum = createHash('sha256').update(file.buffer).digest('hex');
     const text = file.buffer.toString('utf8');
     await prisma.bidDocument.upsert({
@@ -704,7 +722,6 @@ async function seedSyntheticBidDocuments(prisma: PrismaClient, uploadedById: str
 }
 
 async function seedMismatchGstDocument(prisma: PrismaClient, uploadedById: string | null): Promise<void> {
-  const storageRoot = resolveLocalStorageDir(process.env.STORAGE_LOCAL_DIR ?? 'storage');
   const bidId = id('bid000000002');
   const fileId = id('doc000000008');
   const buffer = syntheticText(
@@ -717,9 +734,7 @@ async function seedMismatchGstDocument(prisma: PrismaClient, uploadedById: strin
     ].join('\n'),
   );
   const storageKey = `bids/${bidId}/documents/${fileId}/v1`;
-  const fullPath = path.join(storageRoot, ...storageKey.split('/'));
-  mkdirSync(path.dirname(fullPath), { recursive: true });
-  writeFileSync(fullPath, buffer);
+  await persistSeedObject(prisma, storageKey, buffer);
   const checksum = createHash('sha256').update(buffer).digest('hex');
   const text = buffer.toString('utf8');
   await prisma.bidDocument.upsert({

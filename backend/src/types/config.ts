@@ -23,6 +23,8 @@ export interface AppConfig {
     backoffMs: number;
     timeoutMs: number;
     process: boolean;
+    /** `inline` runs each job to completion inside enqueue (serverless: no long-lived worker). */
+    mode: 'queue' | 'inline';
   };
   jwt: {
     accessSecret?: string;
@@ -47,6 +49,9 @@ export interface AppConfig {
     loginIpRateLimitMax: number;
     loginRateLimitWindowMs: number;
     demoAuth: boolean;
+    passwordLogin: boolean;
+    /** New sign-ups get procurement_officer + the seeded demo tenant (DEMO_MODE only). */
+    demoProvisioning: boolean;
     googleClientId?: string;
     googleClientSecret?: string;
     googleRedirectUri?: string;
